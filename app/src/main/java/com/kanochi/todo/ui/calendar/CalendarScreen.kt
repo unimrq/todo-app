@@ -78,7 +78,7 @@ fun CalendarScreen(
                 title = {
                     Text(
                         text = "${currentMonth.value.get(Calendar.YEAR)}年${currentMonth.value.get(Calendar.MONTH) + 1}月",
-                        fontWeight = FontWeight.Bold, color = AppSurface,
+                        fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppSurface,
                         modifier = Modifier.clickable { showMonthPicker = true }
                     )
                 },
@@ -95,7 +95,8 @@ fun CalendarScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { onAddTodo(selectedDateStart) },
-                containerColor = PrimaryBlue, contentColor = AppSurface, shape = CircleShape
+                containerColor = PrimaryBlue, contentColor = AppSurface, shape = CircleShape,
+                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
             ) { Icon(Icons.Default.Add, contentDescription = "新建任务") }
         }
     ) { padding ->
@@ -111,12 +112,22 @@ fun CalendarScreen(
                     today = today,
                     onDateSelected = { selectedDate.value = it },
                     onSwipeLeft = {
-                        currentMonth.value = currentMonth.value.clone() as Calendar
-                        currentMonth.value.add(Calendar.MONTH, 1)
+                        if (expandProgress.value > 0.5f) {
+                            currentMonth.value = currentMonth.value.clone() as Calendar
+                            currentMonth.value.add(Calendar.MONTH, 1)
+                        } else {
+                            selectedDate.value = selectedDate.value.clone() as Calendar
+                            selectedDate.value.add(Calendar.DAY_OF_MONTH, 7)
+                        }
                     },
                     onSwipeRight = {
-                        currentMonth.value = currentMonth.value.clone() as Calendar
-                        currentMonth.value.add(Calendar.MONTH, -1)
+                        if (expandProgress.value > 0.5f) {
+                            currentMonth.value = currentMonth.value.clone() as Calendar
+                            currentMonth.value.add(Calendar.MONTH, -1)
+                        } else {
+                            selectedDate.value = selectedDate.value.clone() as Calendar
+                            selectedDate.value.add(Calendar.DAY_OF_MONTH, -7)
+                        }
                     }
                 )
             }
@@ -185,6 +196,7 @@ private fun CalendarArea(
             .fillMaxWidth()
             .clipToBounds()
             .height(displayHeight)
+            .heightIn(min = 120.dp)  // ensure touchable area even when collapsed
             .pointerInput(Unit) {
                 hAccum = 0f
                 detectHorizontalDragGestures(
