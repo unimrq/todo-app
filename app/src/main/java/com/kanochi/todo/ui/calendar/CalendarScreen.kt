@@ -297,8 +297,7 @@ private fun CalendarArea(
                                 onExpandProgressChange(localProgress)
                             }
                         } while (event.changes.any { it.pressed })
-                        // Snap to nearest: >=0.5 → expand, <0.5 → collapse
-                        onExpandProgressChange(if (localProgress >= 0.5f) 1f else 0f)
+                        // Stay where user left — no snap back
                     }
                 },
             contentAlignment = Alignment.Center
