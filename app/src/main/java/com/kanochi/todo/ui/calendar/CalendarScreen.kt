@@ -19,6 +19,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -306,12 +307,29 @@ private fun CalendarArea(
     val weekStep = weekHeight + weekSpacer
     val collapsedHeight = weekStep
     val expandedHeight = weekHeight * weeks.size + weekSpacer * (weeks.size - 1)
-    val calHeight = lerp(collapsedHeight.value, expandedHeight.value, expandProgress).dp
 
-    // Continuous offset: at expand=0, show only current week; at expand=1, show all weeks
+    // Two-phase animation:
+    // Phase 1 (0→0.5): current week slides from collapsed to expanded position, box grows
+    // Phase 2 (0.5→1): other weeks slide/fade in
+    val p1 = (expandProgress / 0.5f).coerceAtMost(1f)
+    val p2 = ((expandProgress - 0.5f) / 0.5f).coerceAtLeast(0f)
+
     val weekStepPx = with(density) { weekStep.toPx() }
     val collapsedOffsetPx = -(weekIndex * weekStepPx)
-    val offsetYPx = (collapsedOffsetPx * (1f - expandProgress)).toInt()
+
+    // Offset: at p1=0, current week at top (offset = -weekIndex*weekStep)
+    //        at p1=1, current week at its natural position (offset = 0)
+    val offsetPx = lerp(collapsedOffsetPx, 0f, p1).toInt()
+
+    // Box height grows as current week moves down
+    val currentWeekMovePx = lerp(0f, -(collapsedOffsetPx), p1)
+    val growingHeight = with(density) { collapsedHeight.toPx() } + currentWeekMovePx
+    // Phase 2: grow to full expanded height
+    val expandedHeightPx = with(density) { expandedHeight.toPx() }
+    val calHeightPx = if (expandProgress < 0.5f) growingHeight
+                      else lerp(growingHeight, expandedHeightPx, p2)
+
+    val calHeight = (calHeightPx / density.density).dp
 
     val dragRange = 400f
 
@@ -333,7 +351,7 @@ private fun CalendarArea(
         ) {
             Column(
                 modifier = Modifier
-                    .offset { IntOffset(0, offsetYPx) }
+                    .offset { IntOffset(0, offsetPx) }
                     .fillMaxWidth()
                     .wrapContentHeight(unbounded = true)
                     .padding(horizontal = 8.dp)
@@ -349,8 +367,15 @@ private fun CalendarArea(
                     }
             ) {
                 weeks.forEachIndexed { i, week ->
-                    WeekRow(week, month, selectedDate, today, onDateSelected)
-                    if (i < weeks.size - 1) Spacer(Modifier.height(weekSpacer))
+                    val weekAlpha = if (i == weekIndex) 1f else p2
+                    WeekRow(
+                        week, month, selectedDate, today, onDateSelected,
+                        modifier = if (weekAlpha < 1f) Modifier.alpha(weekAlpha) else Modifier
+                    )
+                    if (i < weeks.size - 1) {
+                        if (i != weekIndex) Spacer(Modifier.height(weekSpacer).alpha(p2))
+                        else Spacer(Modifier.height(weekSpacer))
+                    }
                 }
             }
         }
@@ -382,9 +407,10 @@ private fun CalendarArea(
 @Composable
 private fun WeekRow(
     week: Array<Calendar?>, month: Calendar, selectedDate: Calendar, today: Calendar,
-    onDateSelected: (Calendar) -> Unit
+    onDateSelected: (Calendar) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().height(40.dp).then(modifier), verticalAlignment = Alignment.CenterVertically) {
         for (i in 0..6) {
             val day = week[i]
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
