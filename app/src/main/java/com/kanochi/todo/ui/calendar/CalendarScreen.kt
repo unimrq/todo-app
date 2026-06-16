@@ -3,7 +3,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -259,11 +259,11 @@ private fun CalendarArea(
             )
         }
 
-        // Drag handle — ONLY this triggers vertical expand/collapse
+        // Drag handle — touch target 40dp, visual bar centered
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(24.dp)
+                .height(40.dp)
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onVerticalDrag = { _, amount ->
@@ -283,7 +283,7 @@ private fun CalendarArea(
             Box(
                 Modifier.width(32.dp).height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(AppSurface.copy(alpha = 0.4f))
+                    .background(AppSurface.copy(alpha = 0.5f))
             )
         }
     }
