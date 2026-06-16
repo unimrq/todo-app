@@ -248,7 +248,7 @@ private fun CalendarArea(
                     .graphicsLayer {
                         // Offset so current week is at top when collapsed
                         val weekPx = 42f * density
-                        translationY = -(weekIndex * weekPx) * (1f - expandProgress)
+                        translationY = -(weekIndex.toFloat() * weekPx) * (1f - expandProgress)
                     }
             ) {
                 weeks.forEachIndexed { i, week ->
