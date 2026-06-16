@@ -211,69 +211,63 @@ private fun CalendarArea(
         label = "calHeight"
     )
 
-    // Horizontal drag state
-    var hAccum by remember { mutableStateOf(0f) }
-    // Vertical drag unit
-    val dragUnit = 400f
-
-    // Outer container: full width, minimum 120dp for touch, clips calendar
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 120.dp)
-            .clipToBounds()
-    ) {
-        // Calendar content - clipped to animated height
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-                .height(animatedHeight)
-        ) {
-            weeks.forEach { week ->
-                WeekRow(week, month, selectedDate, today, onDateSelected)
-                Spacer(Modifier.height(2.dp))
-            }
-        }
-
-        // Drag handle at bottom
+    Column(Modifier.fillMaxWidth()) {
+        // Calendar content with horizontal swipe overlay
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(vertical = 4.dp),
-            contentAlignment = Alignment.Center
+                .height(animatedHeight)
+                .clipToBounds()
         ) {
+            // Back layer: weeks with clickable day cells
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp)
+            ) {
+                weeks.forEachIndexed { i, week ->
+                    WeekRow(week, month, selectedDate, today, onDateSelected)
+                    if (i < weeks.size - 1) Spacer(Modifier.height(2.dp))
+                }
+            }
+
+            // Front layer: horizontal swipe only — does NOT consume taps
             Box(
-                Modifier.width(32.dp).height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(AppSurface.copy(alpha = 0.4f))
+                modifier = Modifier
+                    .matchParentSize()
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            var totalX = 0f
+                            do {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                totalX += change.positionChange().x
+                                if (abs(totalX) > SWIPE_THRESHOLD) {
+                                    // Past threshold — consume remaining events
+                                    change.consume()
+                                    while (event.changes.any { it.pressed }) {
+                                        awaitPointerEvent().changes.firstOrNull { it.id == down.id }?.consume()
+                                    }
+                                    if (totalX > 0) onSwipeRight() else onSwipeLeft()
+                                    break
+                                }
+                            } while (event.changes.any { it.pressed })
+                            // Tap (no drag) → nothing consumed → passes to DayCell clickable
+                        }
+                    }
             )
         }
 
-        // Gesture overlay - covers the full outer box for touch
+        // Drag handle — ONLY this triggers vertical expand/collapse
         Box(
             modifier = Modifier
-                .matchParentSize()
-                .pointerInput(Unit) {
-                    // Reset accumulators
-                    hAccum = 0f
-                    detectHorizontalDragGestures(
-                        onHorizontalDrag = { _, amount ->
-                            hAccum += amount
-                            if (abs(hAccum) > SWIPE_THRESHOLD) {
-                                if (hAccum > 0) onSwipeRight() else onSwipeLeft()
-                                hAccum = 0f
-                            }
-                        },
-                        onDragEnd = { hAccum = 0f },
-                        onDragCancel = { hAccum = 0f }
-                    )
-                }
+                .fillMaxWidth()
+                .height(24.dp)
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onVerticalDrag = { _, amount ->
-                            val target = (expandProgress + amount / dragUnit).coerceIn(0f, 1f)
+                            val target = (expandProgress + amount / 400f).coerceIn(0f, 1f)
                             onExpandProgressChange(target)
                         },
                         onDragEnd = {
@@ -283,8 +277,15 @@ private fun CalendarArea(
                             onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
                         }
                     )
-                }
-        )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                Modifier.width(32.dp).height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(AppSurface.copy(alpha = 0.4f))
+            )
+        }
     }
 }
 
