@@ -305,7 +305,7 @@ private fun CalendarArea(
     }
 
     val weekStep = weekHeight + weekSpacer
-    val collapsedHeight = weekStep
+    val collapsedHeight = weekStep + 4.dp
     val expandedHeight = weekHeight * weeks.size + weekSpacer * (weeks.size - 1)
 
     // Two-phase animation:
