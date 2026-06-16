@@ -186,7 +186,9 @@ fun CalendarScreen(
                 onRefresh = {
                     isRefreshing = true
                     scope.launch {
-                        repository.refreshFromServer()
+                        try {
+                            repository.refreshFromServer()
+                        } catch (_: Exception) { }
                         isRefreshing = false
                     }
                 },
