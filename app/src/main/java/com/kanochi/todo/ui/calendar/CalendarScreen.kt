@@ -416,128 +416,128 @@ private fun DayCell(day: Calendar, isToday: Boolean, isSelected: Boolean, isCurr
 
 @Composable
 private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
-    val done = todo.status == "completed"
-    val scope = rememberCoroutineScope()
-    val offset = remember { Animatable(0f) }
-    val density = LocalDensity.current
-    val actionWidth = with(density) { 160.dp.toPx() }
+        val done = todo.status == "completed"
+        val scope = rememberCoroutineScope()
+        val offset = remember { Animatable(0f) }
+        val density = LocalDensity.current
+        val actionWidth = with(density) { 160.dp.toPx() }
 
-    val priority = Priority.fromString(todo.priority)
-    val pc = when (priority) { Priority.HIGH -> HighPriority; Priority.MEDIUM -> MediumPriority; Priority.LOW -> LowPriority }
+        val priority = Priority.fromString(todo.priority)
+        val pc = when (priority) { Priority.HIGH -> HighPriority; Priority.MEDIUM -> MediumPriority; Priority.LOW -> LowPriority }
 
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clipToBounds()
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    var dragX = 0f
-                    var captured = false
-
-                    do {
-                        val event = awaitPointerEvent(PointerEventPass.Main)
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
-
-                        if (change.pressed) {
-                            val dx = change.positionChange().x
-                            val dy = change.positionChange().y
-                            dragX += dx
-
-                            // Once drag is clearly horizontal, consume and move
-                            if (!captured && abs(dragX) > abs(dy) + 8f && abs(dragX) > 8f) {
-                                captured = true
-                            }
-
-                            if (captured) {
-                                change.consume()
-                                scope.launch {
-                                    val target = (offset.value + dx).coerceIn(-actionWidth, 0f)
-                                    offset.snapTo(target)
-                                }
-                            }
-                        }
-                    } while (event.changes.any { it.pressed })
-
-                    // Snap on release
-                    scope.launch {
-                        if (offset.value < -actionWidth / 3) {
-                            offset.animateTo(-actionWidth)
-                        } else {
-                            offset.animateTo(0f)
-                        }
-                    }
-                }
-            }
-    ) {
-        // Background: action buttons on the right
-        Row(
-            Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextButton(
-                onClick = {
-                    scope.launch { offset.animateTo(0f) }
-                    onEdit()
-                }
-            ) {
-                Text("编辑", color = PrimaryBlue, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-            }
-            Spacer(Modifier.width(8.dp))
-            TextButton(
-                onClick = {
-                    scope.launch { offset.animateTo(0f) }
-                    onDelete()
-                }
-            ) {
-                Text("删除", color = HighPriority, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-            }
-            Spacer(Modifier.width(8.dp))
-        }
-
-        // Foreground: swipeable task content
-        Row(
+        Box(
             Modifier
-                .offset { IntOffset(offset.value.roundToInt(), 0) }
                 .fillMaxWidth()
                 .height(IntrinsicSize.Min)
-                .background(AppSurface),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left priority color bar
-            Box(Modifier.width(5.dp).fillMaxHeight().background(pc))
+                .clipToBounds()
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var dragX = 0f
+                        var captured = false
 
-            Spacer(Modifier.width(10.dp))
+                        do {
+                            val event = awaitPointerEvent(PointerEventPass.Main)
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
 
-            Checkbox(checked = done, onCheckedChange = { onToggle() },
-                colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
+                            if (change.pressed) {
+                                val dx = change.positionChange().x
+                                val dy = change.positionChange().y
+                                dragX += dx
 
-            Spacer(Modifier.width(6.dp))
+                                if (!captured && abs(dragX) > abs(dy) + 8f && abs(dragX) > 8f) {
+                                    captured = true
+                                }
 
-            Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
-                Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
-                if (todo.description.isNotBlank()) {
-                    Text(todo.description, color = TextTertiary, fontSize = 12.sp, maxLines = 2,
-                        overflow = TextOverflow.Ellipsis)
-                }
-                if (todo.category.isNotBlank()) {
-                    if (todo.description.isNotBlank()) Spacer(Modifier.height(2.dp))
-                    val catColor = when (todo.category) {
-                        "日程" -> PrimaryBlue; "工作" -> HighPriority; "学习" -> MediumPriority
-                        "锻炼" -> CompletedGreen; "生活" -> PrimaryBlueLight; else -> TextTertiary
+                                if (captured) {
+                                    change.consume()
+                                    scope.launch {
+                                        val target = (offset.value + dx).coerceIn(-actionWidth, 0f)
+                                        offset.snapTo(target)
+                                    }
+                                }
+                            }
+                        } while (event.changes.any { it.pressed })
+
+                        scope.launch {
+                            if (offset.value < -actionWidth / 3) {
+                                offset.animateTo(-actionWidth)
+                            } else {
+                                offset.animateTo(0f)
+                            }
+                        }
                     }
-                    Text("#${todo.category}", color = catColor, fontSize = 11.sp, maxLines = 1,
-                        fontWeight = FontWeight.Medium)
+                }
+        ) {
+            // Background: action buttons on the right
+            Row(
+                Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Edit button
+                TextButton(onClick = { scope.launch { offset.animateTo(0f) }; onEdit() }) {
+                    Text("编辑", color = PrimaryBlue, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                }
+                Spacer(Modifier.width(8.dp))
+                // Delete button
+                TextButton(onClick = { scope.launch { offset.animateTo(0f) }; onDelete() }) {
+                    Text("删除", color = HighPriority, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+
+            // Foreground: swipeable content with checkbox aligned to title+desc only
+            Column(
+                Modifier
+                    .offset { IntOffset(offset.value.roundToInt(), 0) }
+                    .fillMaxWidth()
+                    .background(AppSurface)
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Left priority color bar (full height)
+                    Box(Modifier.width(5.dp).fillMaxHeight().background(pc))
+                    Spacer(Modifier.width(10.dp))
+
+                    Checkbox(checked = done, onCheckedChange = { onToggle() },
+                        colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
+                    Spacer(Modifier.width(6.dp))
+
+                    // Title + description (no category here)
+                    Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
+                        Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
+                        if (todo.description.isNotBlank()) {
+                            Text(todo.description, color = TextTertiary, fontSize = 12.sp, maxLines = 2,
+                                overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+
+                // Category row (below title+desc, not affecting checkbox alignment)
+                if (todo.category.isNotBlank()) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(start = (5 + 10 + 24 + 6 + 16).dp, bottom = 8.dp)
+                    ) {
+                        val catColor = when (todo.category) {
+                            "日程" -> PrimaryBlue; "工作" -> HighPriority; "学习" -> MediumPriority
+                            "锻炼" -> CompletedGreen; "生活" -> PrimaryBlueLight; else -> TextTertiary
+                        }
+                        Text("#${todo.category}", color = catColor, fontSize = 11.sp, maxLines = 1,
+                            fontWeight = FontWeight.Medium)
+                    }
                 }
             }
         }
-    }
 
-    // Bottom separator
-    HorizontalDivider(color = AppBorder.copy(alpha = 0.4f), thickness = 0.5.dp)
-}
+        // Bottom separator
+        HorizontalDivider(color = AppBorder.copy(alpha = 0.4f), thickness = 0.5.dp)
+    }
 
 // Helpers
 private fun getWeeksForMonth(c: Calendar): List<Array<Calendar?>> {
@@ -611,41 +611,51 @@ private fun TodoEditDialog(
         onDismissRequest = onDismiss,
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                // Title - big bold, no outline, no label
-                TextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    placeholder = { Text("任务标题", color = TextTertiary) },
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = PrimaryBlue,
-                        unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
-                        cursorColor = PrimaryBlue,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    ),
-                    textStyle = LocalTextStyle.current.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                )
+                // Title: label left, input fills rest
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("标题", color = TextSecondary, fontSize = 13.sp, modifier = Modifier.width(48.dp))
+                    Spacer(Modifier.width(8.dp))
+                    TextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        placeholder = { Text("任务标题", color = TextTertiary) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = PrimaryBlue,
+                            unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
+                            cursorColor = PrimaryBlue,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    )
+                }
 
-                // Description - 2 lines, no outline, no label
-                TextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    placeholder = { Text("任务描述（可选）", color = TextTertiary) },
-                    maxLines = 2,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedIndicatorColor = PrimaryBlue,
-                        unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
-                        cursorColor = PrimaryBlue,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    ),
-                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
-                )
+                // Description: label left, input 2 lines fills rest
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("简介", color = TextSecondary, fontSize = 13.sp, modifier = Modifier.width(48.dp))
+                    Spacer(Modifier.width(8.dp))
+                    TextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        placeholder = { Text("任务描述（可选）", color = TextTertiary) },
+                        maxLines = 2,
+                        modifier = Modifier.weight(1f),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = PrimaryBlue,
+                            unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
+                            cursorColor = PrimaryBlue,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+                    )
+                }
 
                 // Category - label left, buttons right
                 Row(verticalAlignment = Alignment.CenterVertically) {
