@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -250,31 +249,32 @@ private fun CalendarArea(
             }
         }
 
-        // Drag handle — touch target 40dp, visual bar centered
+        // Drag handle — 40dp touch area, visual bar centered
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(40.dp)
                 .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onVerticalDrag = { _, amount ->
-                            // amount < 0 = swipe UP = expand
-                            val target = (expandProgress - amount / 400f).coerceIn(0f, 1f)
-                            onExpandProgressChange(target)
-                        },
-                        onDragEnd = {
-                            onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
-                        },
-                        onDragCancel = {
-                            onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
-                        }
-                    )
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var totalY = 0f
+                        do {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            totalY += change.positionChange().y
+                            if (abs(totalY) > 20f) {
+                                val target = (expandProgress - totalY / 400f).coerceIn(0f, 1f)
+                                onExpandProgressChange(target)
+                            }
+                        } while (event.changes.any { it.pressed })
+                        onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
+                    }
                 },
             contentAlignment = Alignment.Center
         ) {
             Box(
-                Modifier.width(32.dp).height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
+                Modifier.width(32.dp).height(2.dp)
+                    .clip(RoundedCornerShape(1.dp))
                     .background(AppSurface.copy(alpha = 0.5f))
             )
         }
