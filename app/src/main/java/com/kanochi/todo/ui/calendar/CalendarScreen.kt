@@ -298,7 +298,7 @@ private fun CalendarArea(
         }.coerceAtLeast(0)
     }
 
-    val collapsedHeight = weekHeight
+    val collapsedHeight = weekHeight + 4.dp
     val expandedHeight = weekHeight * weeks.size + weekSpacer * (weeks.size - 1)
     val calHeight = lerp(collapsedHeight.value, expandedHeight.value, expandProgress).dp
 
@@ -490,15 +490,17 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                     Column(Modifier.weight(1f)) {
                         // Title + description + category row (category on right)
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            Modifier.heightIn(min = 56.dp),
+                            verticalAlignment = Alignment.Top
                         ) {
                             Spacer(Modifier.width(10.dp))
 
                             Checkbox(checked = done, onCheckedChange = { onToggle() },
+                                modifier = Modifier.padding(top = 12.dp),
                                 colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
                             Spacer(Modifier.width(6.dp))
 
-                            Column(Modifier.weight(1f).heightIn(min = 56.dp).padding(vertical = 12.dp)) {
+                            Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
                                 Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
                                 if (todo.description.isNotBlank()) {
