@@ -108,6 +108,7 @@ fun CalendarScreen(
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, -1)
                             currentMonth.value = cm
+                            selectedDate.value = cm.clone() as Calendar
                         }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "上一月", tint = AppSurface)
                         }
@@ -120,6 +121,7 @@ fun CalendarScreen(
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, 1)
                             currentMonth.value = cm
+                            selectedDate.value = cm.clone() as Calendar
                         }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "下一月", tint = AppSurface)
                         }
@@ -151,6 +153,7 @@ fun CalendarScreen(
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, 1)
                             currentMonth.value = cm
+                            selectedDate.value = cm.clone() as Calendar
                         } else {
                             val sd = selectedDate.value.clone() as Calendar
                             sd.add(Calendar.DAY_OF_MONTH, 7)
@@ -162,6 +165,7 @@ fun CalendarScreen(
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, -1)
                             currentMonth.value = cm
+                            selectedDate.value = cm.clone() as Calendar
                         } else {
                             val sd = selectedDate.value.clone() as Calendar
                             sd.add(Calendar.DAY_OF_MONTH, -7)
@@ -291,19 +295,33 @@ private fun CalendarArea(
     val weekSpacer = 2.dp
     val density = LocalDensity.current
 
-    // Index of the week containing the selected date
-    val weekIndex = remember(weeks, selectedDate) {
+    // If selectedDate is in a different month than the displayed month, 
+    // fall back to the 15th of the current month so weekIndex is always valid
+    val effectiveDate = remember(selectedDate, month) {
+        if (selectedDate.get(Calendar.YEAR) == month.get(Calendar.YEAR) &&
+            selectedDate.get(Calendar.MONTH) == month.get(Calendar.MONTH)) {
+            selectedDate
+        } else {
+            val mid = month.clone() as Calendar
+            mid.set(Calendar.DAY_OF_MONTH, 15)
+            mid
+        }
+    }
+
+    // Index of the week containing the selected (or fallback) date
+    val weekIndex = remember(weeks, effectiveDate) {
         weeks.indexOfFirst { week ->
-            week.any { day -> day != null && isSameDay(day, selectedDate) }
+            week.any { day -> day != null && isSameDay(day, effectiveDate) }
         }.coerceAtLeast(0)
     }
 
-    val collapsedHeight = weekHeight + 4.dp
+    val weekStep = weekHeight + weekSpacer
+    val collapsedHeight = weekStep
     val expandedHeight = weekHeight * weeks.size + weekSpacer * (weeks.size - 1)
     val calHeight = lerp(collapsedHeight.value, expandedHeight.value, expandProgress).dp
 
     // Continuous offset: at expand=0, show only current week; at expand=1, show all weeks
-    val weekStepPx = with(density) { (weekHeight + weekSpacer).toPx() }
+    val weekStepPx = with(density) { weekStep.toPx() }
     val collapsedOffsetPx = -(weekIndex * weekStepPx)
     val offsetYPx = (collapsedOffsetPx * (1f - expandProgress)).toInt()
 
