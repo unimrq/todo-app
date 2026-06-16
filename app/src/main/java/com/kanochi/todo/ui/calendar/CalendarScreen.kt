@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -193,10 +194,7 @@ fun CalendarScreen(
                         isRefreshing = false
                     }
                 },
-                modifier = Modifier.fillMaxSize(),
-                indicatorColors = PullToRefreshDefaults.colors(
-                    containerColor = AppSurface
-                )
+                modifier = Modifier.fillMaxSize()
             ) {
                 LazyColumn(Modifier.fillMaxSize()) {
                     if (todosForDate.isEmpty()) {
