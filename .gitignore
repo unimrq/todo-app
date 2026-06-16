@@ -18,6 +18,9 @@ backend/__pycache__/
 backend/*.pyc
 backend/data/*.db
 
+# SkillHub installed skills
+skills/
+
 # OS
 .DS_Store
 Thumbs.db
