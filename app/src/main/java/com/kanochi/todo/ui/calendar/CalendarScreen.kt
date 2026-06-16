@@ -274,21 +274,20 @@ private fun WeekRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().height(40.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0..6) {
             val day = week[i]
-            if (day == null) {
-                Spacer(modifier = Modifier.weight(1f))
-            } else {
-                DayCell(
-                    day = day,
-                    isToday = isSameDay(day, today),
-                    isSelected = isSameDay(day, selectedDate),
-                    isCurrentMonth = day.get(Calendar.MONTH) == month.get(Calendar.MONTH),
-                    onClick = { onDateSelected(day) }
-                )
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                if (day != null) {
+                    DayCell(
+                        day = day,
+                        isToday = isSameDay(day, today),
+                        isSelected = isSameDay(day, selectedDate),
+                        isCurrentMonth = day.get(Calendar.MONTH) == month.get(Calendar.MONTH),
+                        onClick = { onDateSelected(day) }
+                    )
+                }
             }
         }
     }
