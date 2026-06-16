@@ -518,7 +518,12 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
             Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
                 Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
+                if (todo.description.isNotBlank()) {
+                    Text(todo.description, color = TextTertiary, fontSize = 12.sp, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis)
+                }
                 if (todo.category.isNotBlank()) {
+                    if (todo.description.isNotBlank()) Spacer(Modifier.height(2.dp))
                     Text(todo.category, color = TextTertiary, fontSize = 11.sp, maxLines = 1)
                 }
             }
@@ -588,8 +593,8 @@ private fun TodoEditDialog(
     onDismiss: () -> Unit,
     onSave: (TodoEntity) -> Unit
 ) {
-    val priorities = listOf("high", "medium", "low")
-    val priorityLabels = listOf("高", "中", "低")
+    val categories = listOf("日程", "工作", "学习", "锻炼", "生活", "其他")
+    val priorities = listOf("high" to "高", "medium" to "中", "low" to "低")
     val pc = { p: String -> when (p) { "high" -> HighPriority; "medium" -> MediumPriority; else -> LowPriority } }
 
     var title by remember { mutableStateOf(todo.title) }
@@ -601,43 +606,84 @@ private fun TodoEditDialog(
         onDismissRequest = onDismiss,
         title = { Text("编辑任务", color = TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("标题") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, focusedLabelColor = PrimaryBlue)
-                )
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("描述") },
-                    singleLine = false,
-                    maxLines = 3,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, focusedLabelColor = PrimaryBlue)
-                )
-                OutlinedTextField(
-                    value = category,
-                    onValueChange = { category = it },
-                    label = { Text("分类") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, focusedLabelColor = PrimaryBlue)
-                )
-                // Priority selector
-                Text("优先级", fontSize = 13.sp, color = TextSecondary)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    priorities.forEachIndexed { i, p ->
-                        val isSelected = priority == p
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { priority = p },
-                            label = { Text(priorityLabels[i], fontSize = 13.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = pc(p).copy(alpha = 0.12f),
-                                selectedLabelColor = pc(p)
-                            )
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                // Title - no outline
+                Column {
+                    Text("标题", color = TextSecondary, fontSize = 12.sp)
+                    TextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        placeholder = { Text("任务标题", color = TextTertiary) },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = PrimaryBlue,
+                            unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
+                            cursorColor = PrimaryBlue,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 15.sp)
+                    )
+                }
+
+                // Description - no outline, 2 lines
+                Column {
+                    Text("描述", color = TextSecondary, fontSize = 12.sp)
+                    TextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        placeholder = { Text("任务描述（可选）", color = TextTertiary) },
+                        maxLines = 2,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = PrimaryBlue,
+                            unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
+                            cursorColor = PrimaryBlue,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        ),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+                    )
+                }
+
+                // Category - label left, buttons right
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("分类", color = TextSecondary, fontSize = 13.sp,
+                        modifier = Modifier.width(56.dp))
+                    Spacer(Modifier.width(8.dp))
+                    categories.forEach { c ->
+                        val selected = category == c
+                        val catColor = when (c) {
+                            "日程" -> PrimaryBlue; "工作" -> HighPriority; "学习" -> MediumPriority
+                            "锻炼" -> CompletedGreen; "生活" -> PrimaryBlueLight; else -> TextSecondary
+                        }
+                        SelectionChip(
+                            label = c,
+                            selected = selected,
+                            color = catColor,
+                            onClick = { category = c }
                         )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                }
+
+                // Priority - label left, buttons right
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("优先级", color = TextSecondary, fontSize = 13.sp,
+                        modifier = Modifier.width(56.dp))
+                    Spacer(Modifier.width(8.dp))
+                    priorities.forEach { (p, label) ->
+                        val selected = priority == p
+                        SelectionChip(
+                            label = label,
+                            selected = selected,
+                            color = pc(p),
+                            onClick = { priority = p }
+                        )
+                        Spacer(Modifier.width(6.dp))
                     }
                 }
             }
@@ -649,7 +695,7 @@ private fun TodoEditDialog(
                         onSave(todo.copy(
                             title = title.trim(),
                             description = description.trim(),
-                            category = category.trim(),
+                            category = category,
                             priority = priority,
                             updatedAt = System.currentTimeMillis()
                         ))
@@ -664,4 +710,22 @@ private fun TodoEditDialog(
         containerColor = AppSurface,
         titleContentColor = TextPrimary
     )
+}
+
+@Composable
+private fun SelectionChip(label: String, selected: Boolean, color: Color, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(6.dp),
+        color = if (selected) color.copy(alpha = 0.12f) else Color.Transparent,
+        border = BorderStroke(1.dp, if (selected) color else AppBorder.copy(alpha = 0.4f))
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            color = if (selected) color else TextSecondary
+        )
+    }
 }

@@ -41,6 +41,19 @@ class TodoRepository(private val dao: TodoDao) {
     }
 
     suspend fun updateTodo(todo: TodoEntity) {
+        try {
+            TodoApi.service.updateTodo(
+                todo.id,
+                TodoUpdateDto(
+                    title = todo.title,
+                    description = todo.description,
+                    status = todo.status,
+                    priority = todo.priority,
+                    category = todo.category,
+                    due_date = todo.dueDate
+                )
+            )
+        } catch (_: Exception) { }
         dao.updateTodo(todo)
     }
 
