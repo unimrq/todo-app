@@ -11,8 +11,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,8 +54,7 @@ fun CalendarScreen(
     val today = remember { Calendar.getInstance() }
     val currentMonth = remember { mutableStateOf(Calendar.getInstance()) }
     val selectedDate = remember { mutableStateOf(Calendar.getInstance()) }
-    var showMonthPicker by remember { mutableStateOf(false) }
-    var showYearPicker by remember { mutableStateOf(false) }
+    var showYearMonthPicker by remember { mutableStateOf(false) }
 
     val selectedDateStart = remember(selectedDate.value) {
         val c = selectedDate.value.clone() as Calendar
@@ -80,23 +80,36 @@ fun CalendarScreen(
                 },
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = {
+                            if (expandProgress > 0.5f) {
+                                currentMonth.value = currentMonth.value.clone() as Calendar
+                                currentMonth.value.add(Calendar.MONTH, -1)
+                            } else {
+                                selectedDate.value = selectedDate.value.clone() as Calendar
+                                selectedDate.value.add(Calendar.DAY_OF_MONTH, -7)
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "上一周/月", tint = AppSurface)
+                        }
                         Text(
-                            text = "${currentMonth.value.get(Calendar.YEAR)}年",
-                            fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppSurface,
-                            modifier = Modifier.clickable { showYearPicker = true }
+                            text = "${currentMonth.value.get(Calendar.YEAR)}年${currentMonth.value.get(Calendar.MONTH) + 1}月",
+                            fontSize = 16.sp, fontWeight = FontWeight.Bold, color = AppSurface,
+                            modifier = Modifier.clickable { showYearMonthPicker = true }
                         )
-                        Text(
-                            text = "${currentMonth.value.get(Calendar.MONTH) + 1}月",
-                            fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppSurface,
-                            modifier = Modifier.clickable { showMonthPicker = true }
-                        )
+                        IconButton(onClick = {
+                            if (expandProgress > 0.5f) {
+                                currentMonth.value = currentMonth.value.clone() as Calendar
+                                currentMonth.value.add(Calendar.MONTH, 1)
+                            } else {
+                                selectedDate.value = selectedDate.value.clone() as Calendar
+                                selectedDate.value.add(Calendar.DAY_OF_MONTH, 7)
+                            }
+                        }) {
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "下一周/月", tint = AppSurface)
+                        }
                     }
                 },
-                actions = {
-                    IconButton(onClick = { }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "更多", tint = AppSurface)
-                    }
-                },
+                actions = {},
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = PrimaryBlue, titleContentColor = AppSurface
                 )
@@ -163,15 +176,16 @@ fun CalendarScreen(
         }
     }
 
-    if (showMonthPicker) {
-        MonthPickerDialog(currentMonth.value, onDismiss = { showMonthPicker = false },
-            onMonthSelected = { m -> currentMonth.value.set(Calendar.MONTH, m); showMonthPicker = false })
-    }
-    if (showYearPicker) {
-        YearPickerDialog(
+    if (showYearMonthPicker) {
+        YearMonthPickerDialog(
             currentYear = currentMonth.value.get(Calendar.YEAR),
-            onDismiss = { showYearPicker = false },
-            onYearSelected = { y -> currentMonth.value.set(Calendar.YEAR, y); showYearPicker = false }
+            currentMonth = currentMonth.value.get(Calendar.MONTH),
+            onDismiss = { showYearMonthPicker = false },
+            onSelected = { y, m ->
+                currentMonth.value.set(Calendar.YEAR, y)
+                currentMonth.value.set(Calendar.MONTH, m)
+                showYearMonthPicker = false
+            }
         )
     }
 }
@@ -275,7 +289,8 @@ private fun CalendarArea(
                                 onExpandProgressChange(localProgress)
                             }
                         } while (event.changes.any { it.pressed })
-                        // No snap — stay where user left it
+                        // Snap to nearest: >0.5 → expand, <0.5 → collapse
+                        onExpandProgressChange(if (localProgress > 0.5f) 1f else 0f)
                     }
                 },
             contentAlignment = Alignment.Center
@@ -359,33 +374,33 @@ private fun getWeeksForMonth(c: Calendar): List<Array<Calendar?>> {
 private fun isSameDay(a: Calendar, b: Calendar) = a.get(Calendar.YEAR) == b.get(Calendar.YEAR) && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
 
 @Composable
-private fun MonthPickerDialog(cm: Calendar, onDismiss: () -> Unit, onMonthSelected: (Int) -> Unit) {
-    val ms = listOf("1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月")
-    val cur = cm.get(Calendar.MONTH)
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("选择月份", color = TextPrimary) },
-        text = { Column { ms.chunked(4).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { row.forEach { m ->
-                val i = ms.indexOf(m)
-                TextButton(onClick = { onMonthSelected(i) }, colors = ButtonDefaults.textButtonColors(contentColor = if (i==cur) PrimaryBlue else TextPrimary))
-                { Text(m, fontWeight = if (i==cur) FontWeight.Bold else FontWeight.Normal) }
-            }}
-        }}},
-        confirmButton = { TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) } },
-        containerColor = AppSurface, titleContentColor = TextPrimary)
-}
-
-@Composable
-private fun YearPickerDialog(currentYear: Int, onDismiss: () -> Unit, onYearSelected: (Int) -> Unit) {
+private fun YearMonthPickerDialog(
+    currentYear: Int, currentMonth: Int,
+    onDismiss: () -> Unit, onSelected: (Int, Int) -> Unit
+) {
+    var selYear by remember { mutableStateOf(currentYear) }
     val years = (currentYear - 5..currentYear + 5).toList()
-    AlertDialog(onDismissRequest = onDismiss, title = { Text("选择年份", color = TextPrimary) },
+    val months = listOf("1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月")
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("选择年月", color = TextPrimary) },
         text = {
-            Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
-                years.chunked(4).forEach { row ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { row.forEach { y ->
-                        TextButton(onClick = { onYearSelected(y) },
-                            colors = ButtonDefaults.textButtonColors(contentColor = if (y == currentYear) PrimaryBlue else TextPrimary))
-                        { Text("${y}年", fontWeight = if (y == currentYear) FontWeight.Bold else FontWeight.Normal) }
-                    }}
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                    years.forEach { y ->
+                        TextButton(onClick = { selYear = y },
+                            colors = ButtonDefaults.textButtonColors(contentColor = if (y == selYear) PrimaryBlue else TextPrimary))
+                        { Text("${y}年", fontWeight = if (y == selYear) FontWeight.Bold else FontWeight.Normal) }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                months.chunked(4).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        row.forEach { m ->
+                            val i = months.indexOf(m)
+                            TextButton(onClick = { onSelected(selYear, i) },
+                                colors = ButtonDefaults.textButtonColors(contentColor = if (i == currentMonth && selYear == currentYear) PrimaryBlue else TextPrimary))
+                            { Text(m, fontWeight = if (i == currentMonth && selYear == currentYear) FontWeight.Bold else FontWeight.Normal) }
+                        }
+                    }
                 }
             }
         },
