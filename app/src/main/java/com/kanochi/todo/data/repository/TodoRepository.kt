@@ -3,6 +3,7 @@ package com.kanochi.todo.data.repository
 import com.kanochi.todo.data.local.TodoDao
 import com.kanochi.todo.data.model.*
 import com.kanochi.todo.data.remote.TodoApi
+import com.kanochi.todo.data.remote.TodoUpdateDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -53,7 +54,7 @@ class TodoRepository(private val dao: TodoDao) {
         dao.updateStatus(id, newStatus)
     }
 
-    // Server sync — merge: upsert changed/new, delete removed
+    // Pull: fetch cloud tasks → merge into local
     suspend fun refreshFromServer(): Boolean = withContext(Dispatchers.IO) {
         try {
             val serverList = TodoApi.service.getTodos()
@@ -70,6 +71,40 @@ class TodoRepository(private val dao: TodoDao) {
             if (toUpsert.isNotEmpty()) dao.insertTodos(toUpsert)
             toDelete.forEach { dao.deleteTodoById(it) }
             true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // Push: upload local completed/updated tasks to cloud
+    suspend fun syncToServer(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val localTodos = dao.getTodosUpdatedSince(0)
+            for (todo in localTodos) {
+                TodoApi.service.updateTodo(
+                    todo.id,
+                    TodoUpdateDto(
+                        title = todo.title,
+                        description = todo.description,
+                        status = todo.status,
+                        priority = todo.priority,
+                        category = todo.category,
+                        due_date = todo.dueDate
+                    )
+                )
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    // Bidirectional sync: push local changes first, then pull from cloud
+    suspend fun fullSync(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val pushed = syncToServer()
+            val pulled = refreshFromServer()
+            pushed && pulled
         } catch (_: Exception) {
             false
         }

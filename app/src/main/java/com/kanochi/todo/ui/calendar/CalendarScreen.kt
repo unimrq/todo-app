@@ -4,7 +4,7 @@ import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -187,12 +188,15 @@ fun CalendarScreen(
                     isRefreshing = true
                     scope.launch {
                         try {
-                            repository.refreshFromServer()
+                            repository.fullSync()
                         } catch (_: Exception) { }
                         isRefreshing = false
                     }
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                indicatorColors = PullToRefreshDefaults.colors(
+                    containerColor = AppSurface
+                )
             ) {
                 LazyColumn(Modifier.fillMaxSize()) {
                     if (todosForDate.isEmpty()) {
@@ -402,23 +406,44 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
             .fillMaxWidth()
             .clipToBounds()
             .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        scope.launch {
-                            if (offset.value < -actionWidth / 3) {
-                                offset.animateTo(-actionWidth)
-                            } else {
-                                offset.animateTo(0f)
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var dragX = 0f
+                    var captured = false
+
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+
+                        if (change.pressed) {
+                            val dx = change.positionChange().x
+                            val dy = change.positionChange().y
+                            dragX += dx
+
+                            // Once drag is clearly horizontal, consume and move
+                            if (!captured && abs(dragX) > abs(dy) + 8f && abs(dragX) > 8f) {
+                                captured = true
+                            }
+
+                            if (captured) {
+                                change.consume()
+                                scope.launch {
+                                    val target = (offset.value + dx).coerceIn(-actionWidth, 0f)
+                                    offset.snapTo(target)
+                                }
                             }
                         }
-                    },
-                    onHorizontalDrag = { _, dragAmount ->
-                        scope.launch {
-                            val target = (offset.value + dragAmount).coerceIn(-actionWidth, 0f)
-                            offset.snapTo(target)
+                    } while (event.changes.any { it.pressed })
+
+                    // Snap on release
+                    scope.launch {
+                        if (offset.value < -actionWidth / 3) {
+                            offset.animateTo(-actionWidth)
+                        } else {
+                            offset.animateTo(0f)
                         }
                     }
-                )
+                }
             }
     ) {
         // Background: action buttons on the right
@@ -457,7 +482,7 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left priority color bar
-            Box(Modifier.width(3.dp).fillMaxHeight().background(pc))
+            Box(Modifier.width(5.dp).fillMaxHeight().background(pc))
 
             Spacer(Modifier.width(10.dp))
 
