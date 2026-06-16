@@ -291,24 +291,16 @@ private fun CalendarArea(
     val weekSpacer = 2.dp
     val density = LocalDensity.current
 
-    // If selectedDate is in a different month than the displayed month, 
-    // fall back to the 15th of the current month so weekIndex is always valid
-    val effectiveDate = remember(selectedDate, month) {
-        if (selectedDate.get(Calendar.YEAR) == month.get(Calendar.YEAR) &&
-            selectedDate.get(Calendar.MONTH) == month.get(Calendar.MONTH)) {
-            selectedDate
-        } else {
-            val mid = month.clone() as Calendar
-            mid.set(Calendar.DAY_OF_MONTH, 15)
-            mid
-        }
-    }
-
-    // Index of the week containing the selected (or fallback) date
-    val weekIndex = remember(weeks, effectiveDate) {
-        weeks.indexOfFirst { week ->
-            week.any { day -> day != null && isSameDay(day, effectiveDate) }
-        }.coerceAtLeast(0)
+    // Compute which week of the month contains the selected date.
+    // If selectedDate is outside the current month, use its day-of-month
+    // clamped to the current month's max days (so we always show a valid week).
+    val weekIndex = remember(selectedDate, month, weeks) {
+        val dayOfMonth = selectedDate.get(Calendar.DAY_OF_MONTH)
+            .coerceAtMost(month.getActualMaximum(Calendar.DAY_OF_MONTH))
+        val firstOfMonth = month.clone() as Calendar
+        firstOfMonth.set(Calendar.DAY_OF_MONTH, 1)
+        val offFromMon = (firstOfMonth.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7
+        ((offFromMon + dayOfMonth - 1) / 7).coerceIn(0, weeks.size - 1)
     }
 
     val weekStep = weekHeight + weekSpacer
