@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -205,8 +206,14 @@ private fun CalendarArea(
 
     val calHeight = minHeight + (maxHeight - minHeight) * expandProgress
 
+    // Index of the week containing the selected date (for collapsed offset)
+    val weekIndex = remember(weeks, selectedDate) {
+        weeks.indexOfFirst { week ->
+            week.any { day -> day != null && isSameDay(day, selectedDate) }
+        }.coerceAtLeast(0)
+    }
+
     Column(Modifier.fillMaxWidth()) {
-        // Calendar content with horizontal swipe on the WRAPPER
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -236,6 +243,11 @@ private fun CalendarArea(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
+                    .graphicsLayer {
+                        // Offset so current week is at top when collapsed
+                        val weekPx = (40.dp + 2.dp) * density
+                        translationY = -(weekIndex * weekPx) * (1f - expandProgress)
+                    }
             ) {
                 weeks.forEachIndexed { i, week ->
                     WeekRow(week, month, selectedDate, today, onDateSelected)
@@ -252,14 +264,12 @@ private fun CalendarArea(
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        var totalY = 0f
                         do {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            totalY += change.positionChange().y
-                            if (abs(totalY) > 20f) {
-                                // Swipe DOWN (totalY > 0) = expand; swipe UP (totalY < 0) = collapse
-                                val target = (expandProgress + totalY / 400f).coerceIn(0f, 1f)
+                            val delta = change.positionChange().y
+                            if (abs(delta) > 0.5f) {
+                                val target = (expandProgress + delta / 400f).coerceIn(0f, 1f)
                                 onExpandProgressChange(target)
                             }
                         } while (event.changes.any { it.pressed })
