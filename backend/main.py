@@ -10,6 +10,10 @@ import os
 
 app = FastAPI(title="Todo API")
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
