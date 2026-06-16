@@ -1,6 +1,5 @@
 package com.kanochi.todo.ui.calendar
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -204,18 +203,14 @@ private fun CalendarArea(
     val minHeight = weekHeight
     val maxHeight = weekHeight * weeks.size
 
-    val animatedHeight by animateDpAsState(
-        targetValue = minHeight + (maxHeight - minHeight) * expandProgress,
-        animationSpec = tween(200),
-        label = "calHeight"
-    )
+    val calHeight = minHeight + (maxHeight - minHeight) * expandProgress
 
     Column(Modifier.fillMaxWidth()) {
         // Calendar content with horizontal swipe on the WRAPPER
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(animatedHeight)
+                .height(calHeight)
                 .clipToBounds()
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -263,7 +258,8 @@ private fun CalendarArea(
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             totalY += change.positionChange().y
                             if (abs(totalY) > 20f) {
-                                val target = (expandProgress - totalY / 400f).coerceIn(0f, 1f)
+                                // Swipe DOWN (totalY > 0) = expand; swipe UP (totalY < 0) = collapse
+                                val target = (expandProgress + totalY / 400f).coerceIn(0f, 1f)
                                 onExpandProgressChange(target)
                             }
                         } while (event.changes.any { it.pressed })
