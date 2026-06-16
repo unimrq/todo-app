@@ -108,7 +108,6 @@ fun CalendarScreen(
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, -1)
                             currentMonth.value = cm
-                            selectedDate.value = cm.clone() as Calendar
                         }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "上一月", tint = AppSurface)
                         }
@@ -121,7 +120,6 @@ fun CalendarScreen(
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, 1)
                             currentMonth.value = cm
-                            selectedDate.value = cm.clone() as Calendar
                         }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "下一月", tint = AppSurface)
                         }
@@ -153,7 +151,6 @@ fun CalendarScreen(
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, 1)
                             currentMonth.value = cm
-                            selectedDate.value = cm.clone() as Calendar
                         } else {
                             val sd = selectedDate.value.clone() as Calendar
                             sd.add(Calendar.DAY_OF_MONTH, 7)
@@ -165,7 +162,6 @@ fun CalendarScreen(
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, -1)
                             currentMonth.value = cm
-                            selectedDate.value = cm.clone() as Calendar
                         } else {
                             val sd = selectedDate.value.clone() as Calendar
                             sd.add(Calendar.DAY_OF_MONTH, -7)
