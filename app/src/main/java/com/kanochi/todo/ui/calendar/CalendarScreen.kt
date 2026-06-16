@@ -137,7 +137,6 @@ fun CalendarScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .systemBarsPadding()
                 .padding(padding)
                 .background(AppBackground)
         ) {
@@ -309,36 +308,28 @@ private fun CalendarArea(
     }
 
     val weekStep = weekHeight + weekSpacer
-    val collapsedHeight = weekStep + 4.dp
-    val expandedHeight = weekHeight * weeks.size + weekSpacer * (weeks.size - 1)
-
-    // Two-phase animation:
-    // Phase 1 (0→0.5): current week slides from collapsed to expanded position, box grows
-    // Phase 2 (0.5→1): other weeks slide/fade in
-    val p1 = (expandProgress / 0.5f).coerceAtMost(1f)
-    val p2 = ((expandProgress - 0.5f) / 0.5f).coerceAtLeast(0f)
-
-    val weekStepPx = with(density) { weekStep.toPx() }
-    val collapsedOffsetPx = -(weekIndex * weekStepPx)
-
-    // Offset: at p1=0, current week at top (offset = -weekIndex*weekStep)
-    //        at p1=1, current week at its natural position (offset = 0)
-    val offsetPx = lerp(collapsedOffsetPx, 0f, p1).toInt()
-
-    // Box height grows as current week moves down
-    val currentWeekMovePx = lerp(0f, -(collapsedOffsetPx), p1)
-    val growingHeight = with(density) { collapsedHeight.toPx() } + currentWeekMovePx
-    // Phase 2: grow to full expanded height
-    val expandedHeightPx = with(density) { expandedHeight.toPx() }
-    val calHeightPx = if (expandProgress < 0.5f) growingHeight
-                      else lerp(growingHeight, expandedHeightPx, p2)
-
-    val calHeight = (calHeightPx / density.density).dp
-
+    val collapsedHeightDp = weekStep + 4.dp
+    val expandedHeightDp = weekHeight * weeks.size + weekSpacer * (weeks.size - 1)
+    val calHeight = lerp(collapsedHeightDp, expandedHeightDp, expandProgress)
     val dragRange = 400f
 
+    val weekStepPx = with(density) { weekStep.toPx() }
+    val p2 = ((expandProgress - 0.5f) / 0.5f).coerceAtLeast(0f)
+
+    val offsetPx = if (expandProgress < 0.5f) {
+        // 收缩：让当前周显示在顶部，再多往下偏移一些
+        val topOffset = -(weekIndex * weekStepPx)
+        // 限制偏移量，确保不超出可见区域
+        val maxOffset = with(density) { (collapsedHeightDp - weekHeight).toPx() }
+        // 加一个偏移量，让日期往下移
+        val extraOffset = with(density) { 8.dp.toPx() }
+        (topOffset.coerceAtLeast(-maxOffset) + extraOffset).toInt()
+    } else {
+        lerp(0f, 0f, p2).toInt()
+    }
+
     Column(Modifier.fillMaxWidth()) {
-        // Calendar grid — always render all weeks, offset continuously
+        // Calendar grid
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -384,7 +375,7 @@ private fun CalendarArea(
             }
         }
 
-        // Drag handle bar — same draggable logic as the grid area above
+        // Drag handle bar
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -400,7 +391,7 @@ private fun CalendarArea(
             contentAlignment = Alignment.Center
         ) {
             Box(
-                Modifier.width(32.dp).height(2.dp)
+                Modifier.width(64.dp).height(2.dp)
                     .clip(RoundedCornerShape(1.dp))
                     .background(AppSurface.copy(alpha = 0.5f))
             )
