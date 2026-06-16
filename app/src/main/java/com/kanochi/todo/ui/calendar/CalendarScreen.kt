@@ -178,12 +178,14 @@ fun CalendarScreen(
 
 @Composable
 private fun WeekdayHeader() {
-    val weekdays = listOf("一", "二", "三", "四", "五", "六", "日")
-    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 0.dp).height(20.dp),
+    val weekdays = listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp).height(18.dp),
         verticalAlignment = Alignment.CenterVertically) {
         weekdays.forEachIndexed { i, d ->
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(d, textAlign = TextAlign.Center, color = AppSurface.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Text(d, textAlign = TextAlign.Center,
+                    color = AppSurface.copy(alpha = 0.45f),
+                    fontSize = 11.sp, fontWeight = FontWeight.Normal)
             }
         }
     }
@@ -202,7 +204,7 @@ private fun CalendarArea(
 ) {
     val weeks = remember(month) { getWeeksForMonth(month) }
     val weekHeight = 44.dp
-    val minHeight = weekHeight
+    val minHeight = 40.dp
     val maxHeight = weekHeight * weeks.size
 
     val calHeight = minHeight + (maxHeight - minHeight) * expandProgress
@@ -255,11 +257,11 @@ private fun CalendarArea(
             }
         }
 
-        // Drag handle — 40dp touch area, visual bar centered
+        // Drag handle — 24dp touch area, visual bar centered
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(40.dp)
+                .height(24.dp)
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -273,7 +275,7 @@ private fun CalendarArea(
                                 onExpandProgressChange(localProgress)
                             }
                         } while (event.changes.any { it.pressed })
-                        onExpandProgressChange(if (localProgress > 0.3f) 1f else 0f)
+                        // No snap — stay where user left it
                     }
                 },
             contentAlignment = Alignment.Center
