@@ -347,6 +347,7 @@ private fun CalendarArea(
                 modifier = Modifier
                     .offset { IntOffset(0, offsetYPx) }
                     .fillMaxWidth()
+                    .wrapContentHeight(unbounded = true)
                     .padding(horizontal = 8.dp)
                     .pointerInput(Unit) {
                         detectHorizontalDragGestures(
@@ -509,12 +510,11 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                         // Title + description + category row (category on right)
                         Row(
                             Modifier.heightIn(min = 56.dp),
-                            verticalAlignment = Alignment.Top
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Spacer(Modifier.width(10.dp))
 
                             Checkbox(checked = done, onCheckedChange = { onToggle() },
-                                modifier = Modifier.padding(top = 12.dp),
                                 colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
                             Spacer(Modifier.width(6.dp))
 
