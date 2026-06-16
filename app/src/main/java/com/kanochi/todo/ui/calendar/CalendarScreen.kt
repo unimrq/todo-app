@@ -277,7 +277,7 @@ private fun WeekdayHeader() {
         weekdays.forEachIndexed { i, d ->
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Text(d, textAlign = TextAlign.Center,
-                    color = AppSurface.copy(alpha = 0.45f),
+                    color = AppSurface,
                     fontSize = 11.sp, fontWeight = FontWeight.Normal)
             }
         }
@@ -501,7 +501,7 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                     Box(Modifier.width(5.dp).fillMaxHeight().background(pc))
 
                     Column(Modifier.weight(1f)) {
-                        // Title + description row
+                        // Title + description + category row (category on right)
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -519,13 +519,9 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                                         overflow = TextOverflow.Ellipsis)
                                 }
                             }
-                        }
 
-                        // Category row
-                        if (todo.category.isNotBlank()) {
-                            Row(
-                                Modifier.padding(start = (10 + 24 + 6 + 16).dp, bottom = 8.dp)
-                            ) {
+                            // Category on the right, vertically centered
+                            if (todo.category.isNotBlank()) {
                                 val catColor = when (todo.category) {
                                     "日程" -> PrimaryBlue; "工作" -> HighPriority; "学习" -> MediumPriority
                                     "锻炼" -> CompletedGreen; "生活" -> PrimaryBlueLight; else -> TextTertiary
@@ -533,6 +529,8 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                                 Text("#${todo.category}", color = catColor, fontSize = 11.sp, maxLines = 1,
                                     fontWeight = FontWeight.Medium)
                             }
+
+                            Spacer(Modifier.width(16.dp))
                         }
                     }
                 }

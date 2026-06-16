@@ -2,17 +2,17 @@ package com.kanochi.todo.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Light theme - Dark navy primary, white background
+// Light theme - Deep blue primary, white background
 val AppBackground = Color(0xFFF8F9FA)
 val AppSurface = Color(0xFFFFFFFF)
 val AppSurfaceVariant = Color(0xFFF0F2F5)
 val AppBorder = Color(0xFFE5E7EB)
 
-// Primary: deep navy black
-val PrimaryBlue = Color(0xFF0F172A)
-val PrimaryBlueLight = Color(0xFF1E293B)
-val PrimaryBlueVariant = Color(0xFFE2E8F0)
-val BlueAccent = Color(0xFF0B1120)
+// Primary: rich deep blue
+val PrimaryBlue = Color(0xFF005691)
+val PrimaryBlueLight = Color(0xFF1A7DB8)
+val PrimaryBlueVariant = Color(0xFFD6ECF5)
+val BlueAccent = Color(0xFF004A7C)
 
 val TextPrimary = Color(0xFF1F2937)
 val TextSecondary = Color(0xFF6B7280)
