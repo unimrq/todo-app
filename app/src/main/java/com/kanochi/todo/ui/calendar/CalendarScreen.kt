@@ -487,7 +487,7 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                 Spacer(Modifier.width(8.dp))
             }
 
-            // Foreground: swipeable content with checkbox aligned to title+desc only
+            // Foreground: swipeable content with bar spanning all rows
             Column(
                 Modifier
                     .offset { IntOffset(offset.value.roundToInt(), 0) }
@@ -495,41 +495,45 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                     .background(AppSurface)
             ) {
                 Row(
-                    Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-                    verticalAlignment = Alignment.CenterVertically
+                    Modifier.fillMaxWidth().height(IntrinsicSize.Min)
                 ) {
-                    // Left priority color bar (full height)
+                    // Left priority color bar (spans full Column height)
                     Box(Modifier.width(5.dp).fillMaxHeight().background(pc))
-                    Spacer(Modifier.width(10.dp))
 
-                    Checkbox(checked = done, onCheckedChange = { onToggle() },
-                        colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
-                    Spacer(Modifier.width(6.dp))
+                    Column(Modifier.weight(1f)) {
+                        // Title + description row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Spacer(Modifier.width(10.dp))
 
-                    // Title + description (no category here)
-                    Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
-                        Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
-                        if (todo.description.isNotBlank()) {
-                            Text(todo.description, color = TextTertiary, fontSize = 12.sp, maxLines = 2,
-                                overflow = TextOverflow.Ellipsis)
+                            Checkbox(checked = done, onCheckedChange = { onToggle() },
+                                colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
+                            Spacer(Modifier.width(6.dp))
+
+                            Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
+                                Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
+                                if (todo.description.isNotBlank()) {
+                                    Text(todo.description, color = TextTertiary, fontSize = 12.sp, maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis)
+                                }
+                            }
                         }
-                    }
-                }
 
-                // Category row (below title+desc, not affecting checkbox alignment)
-                if (todo.category.isNotBlank()) {
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(start = (5 + 10 + 24 + 6 + 16).dp, bottom = 8.dp)
-                    ) {
-                        val catColor = when (todo.category) {
-                            "日程" -> PrimaryBlue; "工作" -> HighPriority; "学习" -> MediumPriority
-                            "锻炼" -> CompletedGreen; "生活" -> PrimaryBlueLight; else -> TextTertiary
+                        // Category row
+                        if (todo.category.isNotBlank()) {
+                            Row(
+                                Modifier.padding(start = (10 + 24 + 6 + 16).dp, bottom = 8.dp)
+                            ) {
+                                val catColor = when (todo.category) {
+                                    "日程" -> PrimaryBlue; "工作" -> HighPriority; "学习" -> MediumPriority
+                                    "锻炼" -> CompletedGreen; "生活" -> PrimaryBlueLight; else -> TextTertiary
+                                }
+                                Text("#${todo.category}", color = catColor, fontSize = 11.sp, maxLines = 1,
+                                    fontWeight = FontWeight.Medium)
+                            }
                         }
-                        Text("#${todo.category}", color = catColor, fontSize = 11.sp, maxLines = 1,
-                            fontWeight = FontWeight.Medium)
                     }
                 }
             }
