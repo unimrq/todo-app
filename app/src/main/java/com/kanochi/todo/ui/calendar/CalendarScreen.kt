@@ -258,7 +258,8 @@ private fun CalendarArea(
                 .pointerInput(Unit) {
                     detectVerticalDragGestures(
                         onVerticalDrag = { _, amount ->
-                            val target = (expandProgress + amount / 400f).coerceIn(0f, 1f)
+                            // amount < 0 = swipe UP = expand
+                            val target = (expandProgress - amount / 400f).coerceIn(0f, 1f)
                             onExpandProgressChange(target)
                         },
                         onDragEnd = {
