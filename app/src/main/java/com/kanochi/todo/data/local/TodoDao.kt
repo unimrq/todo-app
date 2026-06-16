@@ -45,6 +45,9 @@ interface TodoDao {
     @Query("DELETE FROM todos WHERE id = :id")
     suspend fun deleteTodoById(id: String)
 
+    @Query("DELETE FROM todos")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM todos WHERE updatedAt > :since")
     suspend fun getTodosUpdatedSince(since: Long): List<TodoEntity>
 

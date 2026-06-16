@@ -11,11 +11,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,8 +47,6 @@ private const val SWIPE_THRESHOLD = 80f
 @Composable
 fun CalendarScreen(
     repository: TodoRepository,
-    onAddTodo: (Long?) -> Unit,
-    onEditTodo: (TodoEntity) -> Unit,
     onOpenDrawer: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
@@ -56,6 +54,7 @@ fun CalendarScreen(
     val currentMonth = remember { mutableStateOf(Calendar.getInstance()) }
     val selectedDate = remember { mutableStateOf(Calendar.getInstance()) }
     var showYearMonthPicker by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     val selectedDateStart = remember(selectedDate.value) {
         val c = selectedDate.value.clone() as Calendar
@@ -139,13 +138,7 @@ fun CalendarScreen(
                 )
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onAddTodo(selectedDateStart) },
-                containerColor = PrimaryBlue, contentColor = AppSurface, shape = CircleShape,
-                modifier = Modifier.padding(bottom = 16.dp, end = 8.dp)
-            ) { Icon(Icons.Default.Add, contentDescription = "新建任务") }
-        }
+        floatingActionButton = {}
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).background(AppBackground)
@@ -188,18 +181,29 @@ fun CalendarScreen(
 
             HorizontalDivider(color = AppBorder, thickness = 0.5.dp)
 
-            if (todosForDate.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("暂无待办事项", color = TextTertiary, fontSize = 14.sp)
-                }
-            } else {
-                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                    items(todosForDate, key = { it.id }) { todo ->
-                        TodoRow(todo, onToggle = { scope.launch { repository.toggleStatus(todo.id) } },
-                            onDelete = { scope.launch { repository.deleteTodo(todo.id) } },
-                            onEdit = { })
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = {
+                    isRefreshing = true
+                    scope.launch {
+                        repository.refreshFromServer()
+                        isRefreshing = false
                     }
-                    item { Spacer(Modifier.height(80.dp)) }
+                },
+                modifier = Modifier.fillMaxSize()
+            ) {
+                if (todosForDate.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("暂无待办事项", color = TextTertiary, fontSize = 14.sp)
+                    }
+                } else {
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        items(todosForDate, key = { it.id }) { todo ->
+                            TodoRow(todo, onToggle = { scope.launch { repository.toggleStatus(todo.id) } },
+                                onDelete = { scope.launch { repository.deleteTodo(todo.id) } })
+                        }
+                        item { Spacer(Modifier.height(80.dp)) }
+                    }
                 }
             }
         }
@@ -365,10 +369,10 @@ private fun DayCell(day: Calendar, isToday: Boolean, isSelected: Boolean, isCurr
 }
 
 @Composable
-private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onDelete: () -> Unit, onEdit: () -> Unit) {
+private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onDelete: () -> Unit) {
     val done = todo.status == "completed"
     val pc = when (Priority.fromString(todo.priority)) { Priority.HIGH -> HighPriority; Priority.MEDIUM -> MediumPriority; Priority.LOW -> LowPriority }
-    Card(Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable(onClick = onEdit),
+    Card(Modifier.fillMaxWidth().padding(vertical = 3.dp),
         colors = CardDefaults.cardColors(containerColor = AppSurface), shape = RoundedCornerShape(8.dp),
         border = BorderStroke(0.5.dp, AppBorder)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
