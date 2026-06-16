@@ -1,5 +1,6 @@
 package com.kanochi.todo.ui.calendar
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -68,7 +69,26 @@ fun CalendarScreen(
         .collectAsState(initial = emptyList())
 
     // Calendar expand/collapse state
+    var isExpanded by remember { mutableStateOf(false) }
     var expandProgress by remember { mutableStateOf(0f) }
+
+    // Drag-end decision: snap to nearest with animation
+    val onDragEnd: () -> Unit = {
+        val shouldExpand = when {
+            isExpanded && expandProgress < 0.5f -> false
+            isExpanded -> true
+            !isExpanded && expandProgress > 0.5f -> true
+            else -> false
+        }
+        val target = if (shouldExpand) 1f else 0f
+        isExpanded = shouldExpand
+        scope.launch {
+            val start = expandProgress
+            animate(start, target, animationSpec = tween(200)) { value, _ ->
+                expandProgress = value
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -81,7 +101,7 @@ fun CalendarScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = {
-                            if (expandProgress > 0.5f) {
+                            if (isExpanded) {
                                 val cm = currentMonth.value.clone() as Calendar
                                 cm.add(Calendar.MONTH, -1)
                                 currentMonth.value = cm
@@ -99,7 +119,7 @@ fun CalendarScreen(
                             modifier = Modifier.clickable { showYearMonthPicker = true }
                         )
                         IconButton(onClick = {
-                            if (expandProgress > 0.5f) {
+                            if (isExpanded) {
                                 val cm = currentMonth.value.clone() as Calendar
                                 cm.add(Calendar.MONTH, 1)
                                 currentMonth.value = cm
@@ -141,7 +161,7 @@ fun CalendarScreen(
                     onExpandProgressChange = { expandProgress = it },
                     onDateSelected = { selectedDate.value = it },
                     onSwipeLeft = {
-                        if (expandProgress > 0.5f) {
+                        if (isExpanded) {
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, 1)
                             currentMonth.value = cm
@@ -152,7 +172,7 @@ fun CalendarScreen(
                         }
                     },
                     onSwipeRight = {
-                        if (expandProgress > 0.5f) {
+                        if (isExpanded) {
                             val cm = currentMonth.value.clone() as Calendar
                             cm.add(Calendar.MONTH, -1)
                             currentMonth.value = cm
@@ -161,7 +181,8 @@ fun CalendarScreen(
                             sd.add(Calendar.DAY_OF_MONTH, -7)
                             selectedDate.value = sd
                         }
-                    }
+                    },
+                    onDragEnd = onDragEnd
                 )
             }
 
@@ -222,7 +243,8 @@ private fun CalendarArea(
     onExpandProgressChange: (Float) -> Unit,
     onDateSelected: (Calendar) -> Unit,
     onSwipeLeft: () -> Unit,
-    onSwipeRight: () -> Unit
+    onSwipeRight: () -> Unit,
+    onDragEnd: () -> Unit
 ) {
     val weeks = remember(month) { getWeeksForMonth(month) }
     val weekHeight = 44.dp
@@ -299,9 +321,7 @@ private fun CalendarArea(
                                 change.consume()
                             }
                         } while (event.changes.any { it.pressed })
-                        // Snap to nearest: >=0.5 → expand, <0.5 → collapse
-                        val finalP = expandProgress
-                        onExpandProgressChange(if (finalP >= 0.5f) 1f else 0f)
+                        onDragEnd()
                     }
                 },
             contentAlignment = Alignment.Center
