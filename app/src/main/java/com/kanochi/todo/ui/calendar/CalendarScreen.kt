@@ -287,17 +287,21 @@ private fun CalendarArea(
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        var localProgress = expandProgress
+                        var totalDeltaY = 0f
+                        val startProgress = expandProgress
                         do {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            val delta = change.positionChange().y
-                            if (abs(delta) > 0.5f) {
-                                localProgress = (localProgress + delta / 200f).coerceIn(0f, 1f)
-                                onExpandProgressChange(localProgress)
+                            totalDeltaY += change.positionChange().y
+                            if (abs(totalDeltaY) > 5f) {
+                                val target = (startProgress + totalDeltaY / 200f).coerceIn(0f, 1f)
+                                onExpandProgressChange(target)
+                                change.consume()
                             }
                         } while (event.changes.any { it.pressed })
-                        // Stay where user left — no snap back
+                        // Snap to nearest: >=0.5 → expand, <0.5 → collapse
+                        val finalP = expandProgress
+                        onExpandProgressChange(if (finalP >= 0.5f) 1f else 0f)
                     }
                 },
             contentAlignment = Alignment.Center
