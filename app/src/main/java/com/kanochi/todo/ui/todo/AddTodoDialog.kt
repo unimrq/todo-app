@@ -40,7 +40,7 @@ fun AddTodoDialog(
     LaunchedEffect(Unit) {
         try {
             withContext(Dispatchers.IO) {
-                val url = URL("http://10.0.2.2:8765/health")
+                val url = URL("http://8.138.122.116:8765/health")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 3000; conn.readTimeout = 3000
                 serverOnline = conn.responseCode == 200

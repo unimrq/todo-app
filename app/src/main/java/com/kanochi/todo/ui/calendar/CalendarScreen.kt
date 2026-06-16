@@ -125,7 +125,7 @@ fun CalendarScreen(
 
             if (todosForDate.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("🫙", fontSize = 48.sp)
+                    Text("暂无待办事项", color = TextTertiary, fontSize = 14.sp)
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
