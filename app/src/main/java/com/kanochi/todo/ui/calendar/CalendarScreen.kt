@@ -194,10 +194,10 @@ fun CalendarScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             ) {
-                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                LazyColumn(Modifier.fillMaxSize()) {
                     if (todosForDate.isEmpty()) {
                         item {
-                            Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.fillMaxWidth().height(150.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
                                 Text("暂无待办事项", color = TextTertiary, fontSize = 14.sp)
                             }
                         }
@@ -395,17 +395,35 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
     val actionWidth = 150f
 
     val priority = Priority.fromString(todo.priority)
+    val pc = when (priority) { Priority.HIGH -> HighPriority; Priority.MEDIUM -> MediumPriority; Priority.LOW -> LowPriority }
 
     Box(
         Modifier
             .fillMaxWidth()
             .clipToBounds()
+            .pointerInput(Unit) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        scope.launch {
+                            if (offset.value < -actionWidth / 3) {
+                                offset.animateTo(-actionWidth)
+                            } else {
+                                offset.animateTo(0f)
+                            }
+                        }
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        scope.launch {
+                            val target = (offset.value + dragAmount).coerceIn(-actionWidth, 0f)
+                            offset.snapTo(target)
+                        }
+                    }
+                )
+            }
     ) {
         // Background: action buttons on the right
         Row(
-            Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
+            Modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -426,6 +444,7 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
             ) {
                 Text("删除", color = HighPriority, fontWeight = FontWeight.Medium, fontSize = 14.sp)
             }
+            Spacer(Modifier.width(8.dp))
         }
 
         // Foreground: swipeable task content
@@ -433,61 +452,27 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
             Modifier
                 .offset { IntOffset(offset.value.roundToInt(), 0) }
                 .fillMaxWidth()
-                .background(AppSurface)
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            scope.launch {
-                                if (offset.value < -actionWidth / 3) {
-                                    offset.animateTo(-actionWidth)
-                                } else {
-                                    offset.animateTo(0f)
-                                }
-                            }
-                        },
-                        onHorizontalDrag = { _, dragAmount ->
-                            scope.launch {
-                                val target = (offset.value + dragAmount).coerceIn(-actionWidth, 0f)
-                                offset.snapTo(target)
-                            }
-                        }
-                    )
-                }
-                .then(
-                    if (offset.value < -10f) Modifier.clickable(
-                        indication = null,
-                        interactionSource = remember { MutableInteractionSource() }
-                    ) {
-                        scope.launch { offset.animateTo(0f) }
-                    } else Modifier
-                ),
+                .height(IntrinsicSize.Min)
+                .background(AppSurface),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left priority color bar
+            Box(Modifier.width(3.dp).fillMaxHeight().background(pc))
+
+            Spacer(Modifier.width(10.dp))
+
             Checkbox(checked = done, onCheckedChange = { onToggle() },
                 colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
-            Spacer(Modifier.width(4.dp))
-            Column(Modifier.weight(1f)) {
+
+            Spacer(Modifier.width(6.dp))
+
+            Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
                 Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Priority chip
-                    val pc = when (priority) { Priority.HIGH -> HighPriority; Priority.MEDIUM -> MediumPriority; Priority.LOW -> LowPriority }
-                    Box(
-                        Modifier
-                            .background(pc.copy(alpha = 0.12f), RoundedCornerShape(3.dp))
-                            .padding(horizontal = 5.dp, vertical = 1.dp)
-                    ) {
-                        Text(priority.display, color = pc, fontSize = 10.sp, fontWeight = FontWeight.Medium)
-                    }
-                    // Category
-                    if (todo.category.isNotBlank()) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(todo.category, color = TextTertiary, fontSize = 11.sp, maxLines = 1)
-                    }
+                if (todo.category.isNotBlank()) {
+                    Text(todo.category, color = TextTertiary, fontSize = 11.sp, maxLines = 1)
                 }
             }
-            // Right-side spacing (actions are behind)
-            Spacer(Modifier.width(4.dp))
         }
     }
 

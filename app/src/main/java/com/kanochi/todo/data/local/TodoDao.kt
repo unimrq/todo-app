@@ -9,7 +9,7 @@ interface TodoDao {
     @Query("SELECT * FROM todos ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, dueDate ASC")
     fun getAllTodos(): Flow<List<TodoEntity>>
 
-    @Query("SELECT * FROM todos WHERE dueDate >= :dayStart AND dueDate < :dayEnd ORDER BY priority ASC")
+    @Query("SELECT * FROM todos WHERE dueDate >= :dayStart AND dueDate < :dayEnd ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 END, category ASC")
     fun getTodosForDate(dayStart: Long, dayEnd: Long): Flow<List<TodoEntity>>
 
     @Query("SELECT * FROM todos WHERE id = :id")
