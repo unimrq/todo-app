@@ -54,6 +54,7 @@ fun CalendarScreen(
     val currentMonth = remember { mutableStateOf(Calendar.getInstance()) }
     val selectedDate = remember { mutableStateOf(Calendar.getInstance()) }
     var showMonthPicker by remember { mutableStateOf(false) }
+    var showYearPicker by remember { mutableStateOf(false) }
 
     val selectedDateStart = remember(selectedDate.value) {
         val c = selectedDate.value.clone() as Calendar
@@ -78,11 +79,18 @@ fun CalendarScreen(
                     }
                 },
                 title = {
-                    Text(
-                        text = "${currentMonth.value.get(Calendar.YEAR)}年${currentMonth.value.get(Calendar.MONTH) + 1}月",
-                        fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppSurface,
-                        modifier = Modifier.clickable { showMonthPicker = true }
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "${currentMonth.value.get(Calendar.YEAR)}年",
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppSurface,
+                            modifier = Modifier.clickable { showYearPicker = true }
+                        )
+                        Text(
+                            text = "${currentMonth.value.get(Calendar.MONTH) + 1}月",
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold, color = AppSurface,
+                            modifier = Modifier.clickable { showMonthPicker = true }
+                        )
+                    }
                 },
                 actions = {
                     IconButton(onClick = { }) {
@@ -159,6 +167,13 @@ fun CalendarScreen(
         MonthPickerDialog(currentMonth.value, onDismiss = { showMonthPicker = false },
             onMonthSelected = { m -> currentMonth.value.set(Calendar.MONTH, m); showMonthPicker = false })
     }
+    if (showYearPicker) {
+        YearPickerDialog(
+            currentYear = currentMonth.value.get(Calendar.YEAR),
+            onDismiss = { showYearPicker = false },
+            onYearSelected = { y -> currentMonth.value.set(Calendar.YEAR, y); showYearPicker = false }
+        )
+    }
 }
 
 @Composable
@@ -196,68 +211,79 @@ private fun CalendarArea(
         label = "calHeight"
     )
 
-    // Horizontal drag for week/month switching
+    // Horizontal drag state
     var hAccum by remember { mutableStateOf(0f) }
+    // Vertical drag unit
+    val dragUnit = 400f
 
+    // Outer container: full width, minimum 120dp for touch, clips calendar
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 120.dp)
             .clipToBounds()
-            .height(animatedHeight)
-            .heightIn(min = 120.dp)  // ensure touchable area even when collapsed
-            .pointerInput(Unit) {
-                hAccum = 0f
-                detectHorizontalDragGestures(
-                    onHorizontalDrag = { _, amount ->
-                        hAccum += amount
-                        if (abs(hAccum) > SWIPE_THRESHOLD) {
-                            if (hAccum > 0) onSwipeRight() else onSwipeLeft()
-                            hAccum = 0f
-                        }
-                    },
-                    onDragEnd = { hAccum = 0f },
-                    onDragCancel = { hAccum = 0f }
-                )
-            }
     ) {
+        // Calendar content - clipped to animated height
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
+                .height(animatedHeight)
         ) {
-            weeks.forEachIndexed { index, week ->
+            weeks.forEach { week ->
                 WeekRow(week, month, selectedDate, today, onDateSelected)
                 Spacer(Modifier.height(2.dp))
             }
         }
-    }
 
-    // Drag handle - vertical drag for expand/collapse
-    val dragUnit = 400f
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onVerticalDrag = { _, amount ->
-                        val target = (expandProgress + amount / dragUnit).coerceIn(0f, 1f)
-                        onExpandProgressChange(target)
-                    },
-                    onDragEnd = {
-                        onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
-                    },
-                    onDragCancel = {
-                        onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
-                    }
-                )
-            }
-            .padding(vertical = 4.dp),
-        contentAlignment = Alignment.Center
-    ) {
+        // Drag handle at bottom
         Box(
-            Modifier.width(32.dp).height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(AppSurface.copy(alpha = 0.4f))
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                Modifier.width(32.dp).height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(AppSurface.copy(alpha = 0.4f))
+            )
+        }
+
+        // Gesture overlay - covers the full outer box for touch
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .pointerInput(Unit) {
+                    // Reset accumulators
+                    hAccum = 0f
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { _, amount ->
+                            hAccum += amount
+                            if (abs(hAccum) > SWIPE_THRESHOLD) {
+                                if (hAccum > 0) onSwipeRight() else onSwipeLeft()
+                                hAccum = 0f
+                            }
+                        },
+                        onDragEnd = { hAccum = 0f },
+                        onDragCancel = { hAccum = 0f }
+                    )
+                }
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, amount ->
+                            val target = (expandProgress + amount / dragUnit).coerceIn(0f, 1f)
+                            onExpandProgressChange(target)
+                        },
+                        onDragEnd = {
+                            onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
+                        },
+                        onDragCancel = {
+                            onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
+                        }
+                    )
+                }
         )
     }
 }
@@ -343,6 +369,25 @@ private fun MonthPickerDialog(cm: Calendar, onDismiss: () -> Unit, onMonthSelect
                 { Text(m, fontWeight = if (i==cur) FontWeight.Bold else FontWeight.Normal) }
             }}
         }}},
+        confirmButton = { TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) } },
+        containerColor = AppSurface, titleContentColor = TextPrimary)
+}
+
+@Composable
+private fun YearPickerDialog(currentYear: Int, onDismiss: () -> Unit, onYearSelected: (Int) -> Unit) {
+    val years = (currentYear - 5..currentYear + 5).toList()
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("选择年份", color = TextPrimary) },
+        text = {
+            Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
+                years.chunked(4).forEach { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) { row.forEach { y ->
+                        TextButton(onClick = { onYearSelected(y) },
+                            colors = ButtonDefaults.textButtonColors(contentColor = if (y == currentYear) PrimaryBlue else TextPrimary))
+                        { Text("${y}年", fontWeight = if (y == currentYear) FontWeight.Bold else FontWeight.Normal) }
+                    }}
+                }
+            }
+        },
         confirmButton = { TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) } },
         containerColor = AppSurface, titleContentColor = TextPrimary)
 }

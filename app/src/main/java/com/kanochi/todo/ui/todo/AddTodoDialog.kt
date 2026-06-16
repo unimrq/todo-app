@@ -100,7 +100,7 @@ fun AddTodoDialog(
                     shape = RoundedCornerShape(8.dp)
                 )
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // Priority row - label and chips on same line
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
