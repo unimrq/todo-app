@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.lerp
 import com.kanochi.todo.data.model.*
 import com.kanochi.todo.data.repository.TodoRepository
 import com.kanochi.todo.ui.theme.*
@@ -284,6 +285,7 @@ private fun WeekdayHeader() {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CalendarArea(
     month: Calendar,
@@ -298,82 +300,79 @@ private fun CalendarArea(
 ) {
     val weeks = remember(month) { getWeeksForMonth(month) }
     val weekHeight = 44.dp
-    val minHeight = 40.dp
-    val maxHeight = weekHeight * weeks.size
+    val weekSpacer = 2.dp
+    val density = LocalDensity.current
 
-    val calHeight = minHeight + (maxHeight - minHeight) * expandProgress
-
-    // Index of the week containing the selected date (for collapsed view)
+    // Index of the week containing the selected date
     val weekIndex = remember(weeks, selectedDate) {
         weeks.indexOfFirst { week ->
             week.any { day -> day != null && isSameDay(day, selectedDate) }
         }.coerceAtLeast(0)
     }
 
-    // Collapsed: show only current week; Expanded: show all weeks
-    val displayWeeks = if (expandProgress < 0.01f) listOf(weeks[weekIndex]) else weeks
+    val collapsedHeight = weekHeight
+    val expandedHeight = weekHeight * weeks.size + weekSpacer * (weeks.size - 1)
+    val calHeight = lerp(collapsedHeight.value, expandedHeight.value, expandProgress).dp
+
+    // Continuous offset: at expand=0, show only current week; at expand=1, show all weeks
+    val weekStepPx = with(density) { (weekHeight + weekSpacer).toPx() }
+    val collapsedOffsetPx = -(weekIndex * weekStepPx)
+    val offsetYPx = (collapsedOffsetPx * (1f - expandProgress)).toInt()
+
+    val dragRange = 400f
 
     Column(Modifier.fillMaxWidth()) {
+        // Calendar grid — always render all weeks, offset continuously
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(calHeight)
                 .clipToBounds()
-                .pointerInput(Unit) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        var totalX = 0f
-                        do {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            totalX += change.positionChange().x
-                            if (abs(totalX) > SWIPE_THRESHOLD) {
-                                change.consume()
-                                while (event.changes.any { it.pressed }) {
-                                    awaitPointerEvent().changes.firstOrNull { it.id == down.id }?.consume()
-                                }
-                                if (totalX > 0) onSwipeRight() else onSwipeLeft()
-                                break
-                            }
-                        } while (event.changes.any { it.pressed })
-                    }
-                }
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState { delta ->
+                        val target = (expandProgress + delta / dragRange).coerceIn(0f, 1f)
+                        onExpandProgressChange(target)
+                    },
+                    onDragStopped = { onDragEnd() }
+                )
         ) {
             Column(
                 modifier = Modifier
+                    .offset { IntOffset(0, offsetYPx) }
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = { },
+                            onHorizontalDrag = { _, dragAmount ->
+                                if (abs(dragAmount) > 80f) {
+                                    if (dragAmount > 0) onSwipeRight() else onSwipeLeft()
+                                }
+                            }
+                        )
+                    }
             ) {
-                displayWeeks.forEachIndexed { i, week ->
+                weeks.forEachIndexed { i, week ->
                     WeekRow(week, month, selectedDate, today, onDateSelected)
-                    if (i < displayWeeks.size - 1) Spacer(Modifier.height(2.dp))
+                    if (i < weeks.size - 1) Spacer(Modifier.height(weekSpacer))
                 }
             }
         }
 
-        // Drag handle — 24dp touch area, visual bar centered
+        // Drag handle bar — same draggable logic as the grid area above
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(24.dp)
-                .pointerInput(Unit) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        var totalDeltaY = 0f
-                        val startProgress = expandProgress
-                        do {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            totalDeltaY += change.positionChange().y
-                            if (abs(totalDeltaY) > 5f) {
-                                val target = (startProgress + totalDeltaY / 200f).coerceIn(0f, 1f)
-                                onExpandProgressChange(target)
-                                change.consume()
-                            }
-                        } while (event.changes.any { it.pressed })
-                        onDragEnd()
-                    }
-                },
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState { delta ->
+                        val target = (expandProgress + delta / dragRange).coerceIn(0f, 1f)
+                        onExpandProgressChange(target)
+                    },
+                    onDragStopped = { onDragEnd() }
+                ),
             contentAlignment = Alignment.Center
         ) {
             Box(
