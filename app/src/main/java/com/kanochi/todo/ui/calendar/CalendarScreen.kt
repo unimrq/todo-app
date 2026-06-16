@@ -1,7 +1,6 @@
 package com.kanochi.todo.ui.calendar
-
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -67,6 +66,9 @@ fun CalendarScreen(
     val todosForDate by repository.getTodosForDate(selectedDateStart, selectedDateEnd)
         .collectAsState(initial = emptyList())
 
+    // Calendar expand/collapse state
+    var expandProgress by remember { mutableStateOf(0f) }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -110,9 +112,11 @@ fun CalendarScreen(
                     month = currentMonth.value,
                     selectedDate = selectedDate.value,
                     today = today,
+                    expandProgress = expandProgress,
+                    onExpandProgressChange = { expandProgress = it },
                     onDateSelected = { selectedDate.value = it },
                     onSwipeLeft = {
-                        if (expandProgress.value > 0.5f) {
+                        if (expandProgress > 0.5f) {
                             currentMonth.value = currentMonth.value.clone() as Calendar
                             currentMonth.value.add(Calendar.MONTH, 1)
                         } else {
@@ -121,7 +125,7 @@ fun CalendarScreen(
                         }
                     },
                     onSwipeRight = {
-                        if (expandProgress.value > 0.5f) {
+                        if (expandProgress > 0.5f) {
                             currentMonth.value = currentMonth.value.clone() as Calendar
                             currentMonth.value.add(Calendar.MONTH, -1)
                         } else {
@@ -175,18 +179,22 @@ private fun CalendarArea(
     month: Calendar,
     selectedDate: Calendar,
     today: Calendar,
+    expandProgress: Float,
+    onExpandProgressChange: (Float) -> Unit,
     onDateSelected: (Calendar) -> Unit,
     onSwipeLeft: () -> Unit,
     onSwipeRight: () -> Unit
 ) {
-    val scope = rememberCoroutineScope()
     val weeks = remember(month) { getWeeksForMonth(month) }
     val weekHeight = 44.dp
     val minHeight = weekHeight
     val maxHeight = weekHeight * weeks.size
 
-    val expandProgress = remember { Animatable(0f) }
-    val displayHeight = minHeight + (maxHeight - minHeight) * expandProgress.value
+    val animatedHeight by animateDpAsState(
+        targetValue = minHeight + (maxHeight - minHeight) * expandProgress,
+        animationSpec = tween(200),
+        label = "calHeight"
+    )
 
     // Horizontal drag for week/month switching
     var hAccum by remember { mutableStateOf(0f) }
@@ -195,7 +203,7 @@ private fun CalendarArea(
         modifier = Modifier
             .fillMaxWidth()
             .clipToBounds()
-            .height(displayHeight)
+            .height(animatedHeight)
             .heightIn(min = 120.dp)  // ensure touchable area even when collapsed
             .pointerInput(Unit) {
                 hAccum = 0f
@@ -232,21 +240,14 @@ private fun CalendarArea(
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onVerticalDrag = { _, amount ->
-                        scope.launch {
-                            val target = (expandProgress.value + amount / dragUnit).coerceIn(0f, 1f)
-                            expandProgress.snapTo(target)
-                        }
+                        val target = (expandProgress + amount / dragUnit).coerceIn(0f, 1f)
+                        onExpandProgressChange(target)
                     },
                     onDragEnd = {
-                        scope.launch {
-                            if (expandProgress.value > 0.3f) expandProgress.animateTo(1f, tween(200))
-                            else expandProgress.animateTo(0f, tween(200))
-                        }
+                        onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
                     },
                     onDragCancel = {
-                        scope.launch {
-                            expandProgress.animateTo(if (expandProgress.value > 0.3f) 1f else 0f, tween(200))
-                        }
+                        onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
                     }
                 )
             }
