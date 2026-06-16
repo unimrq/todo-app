@@ -212,14 +212,32 @@ private fun CalendarArea(
     )
 
     Column(Modifier.fillMaxWidth()) {
-        // Calendar content with horizontal swipe overlay
+        // Calendar content with horizontal swipe on the WRAPPER
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(animatedHeight)
                 .clipToBounds()
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        var totalX = 0f
+                        do {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            totalX += change.positionChange().x
+                            if (abs(totalX) > SWIPE_THRESHOLD) {
+                                change.consume()
+                                while (event.changes.any { it.pressed }) {
+                                    awaitPointerEvent().changes.firstOrNull { it.id == down.id }?.consume()
+                                }
+                                if (totalX > 0) onSwipeRight() else onSwipeLeft()
+                                break
+                            }
+                        } while (event.changes.any { it.pressed })
+                    }
+                }
         ) {
-            // Back layer: weeks with clickable day cells
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -230,33 +248,6 @@ private fun CalendarArea(
                     if (i < weeks.size - 1) Spacer(Modifier.height(2.dp))
                 }
             }
-
-            // Front layer: horizontal swipe only — does NOT consume taps
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .pointerInput(Unit) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            var totalX = 0f
-                            do {
-                                val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                totalX += change.positionChange().x
-                                if (abs(totalX) > SWIPE_THRESHOLD) {
-                                    // Past threshold — consume remaining events
-                                    change.consume()
-                                    while (event.changes.any { it.pressed }) {
-                                        awaitPointerEvent().changes.firstOrNull { it.id == down.id }?.consume()
-                                    }
-                                    if (totalX > 0) onSwipeRight() else onSwipeLeft()
-                                    break
-                                }
-                            } while (event.changes.any { it.pressed })
-                            // Tap (no drag) → nothing consumed → passes to DayCell clickable
-                        }
-                    }
-            )
         }
 
         // Drag handle — touch target 40dp, visual bar centered
