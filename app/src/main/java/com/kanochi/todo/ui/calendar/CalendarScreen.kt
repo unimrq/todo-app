@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
@@ -208,12 +207,15 @@ private fun CalendarArea(
 
     val calHeight = minHeight + (maxHeight - minHeight) * expandProgress
 
-    // Index of the week containing the selected date (for collapsed offset)
+    // Index of the week containing the selected date (for collapsed view)
     val weekIndex = remember(weeks, selectedDate) {
         weeks.indexOfFirst { week ->
             week.any { day -> day != null && isSameDay(day, selectedDate) }
         }.coerceAtLeast(0)
     }
+
+    // Collapsed: show only current week; Expanded: show all weeks
+    val displayWeeks = if (expandProgress < 0.01f) listOf(weeks[weekIndex]) else weeks
 
     Column(Modifier.fillMaxWidth()) {
         Box(
@@ -245,15 +247,10 @@ private fun CalendarArea(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
-                    .graphicsLayer {
-                        // Offset so current week is at top when collapsed
-                        val weekPx = 42f * density
-                        translationY = -(weekIndex.toFloat() * weekPx) * (1f - expandProgress)
-                    }
             ) {
-                weeks.forEachIndexed { i, week ->
+                displayWeeks.forEachIndexed { i, week ->
                     WeekRow(week, month, selectedDate, today, onDateSelected)
-                    if (i < weeks.size - 1) Spacer(Modifier.height(2.dp))
+                    if (i < displayWeeks.size - 1) Spacer(Modifier.height(2.dp))
                 }
             }
         }
@@ -266,16 +263,17 @@ private fun CalendarArea(
                 .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        var localProgress = expandProgress
                         do {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             val delta = change.positionChange().y
                             if (abs(delta) > 0.5f) {
-                                val target = (expandProgress + delta / 400f).coerceIn(0f, 1f)
-                                onExpandProgressChange(target)
+                                localProgress = (localProgress + delta / 400f).coerceIn(0f, 1f)
+                                onExpandProgressChange(localProgress)
                             }
                         } while (event.changes.any { it.pressed })
-                        onExpandProgressChange(if (expandProgress > 0.3f) 1f else 0f)
+                        onExpandProgressChange(if (localProgress > 0.3f) 1f else 0f)
                     }
                 },
             contentAlignment = Alignment.Center
