@@ -1,13 +1,18 @@
 package com.kanochi.todo.ui.calendar
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kanochi.todo.data.model.*
@@ -32,21 +38,23 @@ import java.util.*
 fun CalendarScreen(
     repository: TodoRepository,
     onAddTodo: (Long?) -> Unit,
-    onEditTodo: (TodoEntity) -> Unit
+    onEditTodo: (TodoEntity) -> Unit,
+    onOpenDrawer: () -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     val calendar = remember { Calendar.getInstance() }
-    var currentMonth by remember { mutableStateOf(Calendar.getInstance()) }
-    var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
+    val currentMonth = remember { mutableStateOf(Calendar.getInstance()) }
+    val selectedDate = remember { mutableStateOf(Calendar.getInstance()) }
     var showMonthPicker by remember { mutableStateOf(false) }
     var showYearPicker by remember { mutableStateOf(false) }
+    var isCalendarExpanded by remember { mutableStateOf(false) }
 
     // Today's date for highlighting
     val today = remember { Calendar.getInstance() }
 
     // Load todos for selected date
-    val selectedDateStart = remember(selectedDate) {
-        val c = selectedDate.clone() as Calendar
+    val selectedDateStart = remember(selectedDate.value) {
+        val c = selectedDate.value.clone() as Calendar
         c.set(Calendar.HOUR_OF_DAY, 0)
         c.set(Calendar.MINUTE, 0)
         c.set(Calendar.SECOND, 0)
@@ -61,35 +69,67 @@ fun CalendarScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "侧边栏",
+                            tint = TextPrimary
+                        )
+                    }
+                },
                 title = {
                     Text(
-                        text = "Todo",
-                        fontWeight = FontWeight.Bold
+                        text = "${currentMonth.value.get(Calendar.YEAR)}年${currentMonth.value.get(Calendar.MONTH) + 1}月",
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
                     )
                 },
+                actions = {
+                    IconButton(onClick = { /* 更多 - 待后续开发 */ }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "更多",
+                            tint = TextPrimary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = DarkBackground,
+                    containerColor = AppSurface,
                     titleContentColor = TextPrimary
                 )
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { onAddTodo(selectedDateStart) },
+                containerColor = PrimaryBlue,
+                contentColor = AppSurface,
+                shape = CircleShape
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "新建任务"
+                )
+            }
         }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(DarkBackground)
+                .background(AppBackground)
         ) {
-            // Month/Year header
-            MonthYearHeader(
-                calendar = currentMonth,
+            // Month navigation row
+            MonthNavRow(
+                calendar = currentMonth.value,
                 onPreviousMonth = {
-                    currentMonth = currentMonth.clone() as Calendar
-                    currentMonth.add(Calendar.MONTH, -1)
+                    currentMonth.value = currentMonth.value.clone() as Calendar
+                    currentMonth.value.add(Calendar.MONTH, -1)
                 },
                 onNextMonth = {
-                    currentMonth = currentMonth.clone() as Calendar
-                    currentMonth.add(Calendar.MONTH, 1)
+                    currentMonth.value = currentMonth.value.clone() as Calendar
+                    currentMonth.value.add(Calendar.MONTH, 1)
                 },
                 onMonthClick = { showMonthPicker = true },
                 onYearClick = { showYearPicker = true }
@@ -98,29 +138,33 @@ fun CalendarScreen(
             // Weekday headers
             WeekdayHeader()
 
-            // Calendar grid (scrollable weeks)
+            // Calendar grid (week or month)
             CalendarGrid(
-                month = currentMonth,
-                selectedDate = selectedDate,
+                month = currentMonth.value,
+                selectedDate = selectedDate.value,
                 today = today,
                 repository = repository,
-                onDateSelected = { selectedDate = it },
+                isExpanded = isCalendarExpanded,
+                onDateSelected = { selectedDate.value = it },
                 onSwipe = { direction ->
-                    currentMonth = currentMonth.clone() as Calendar
-                    currentMonth.add(Calendar.MONTH, if (direction > 0) -1 else 1)
+                    currentMonth.value = currentMonth.value.clone() as Calendar
+                    currentMonth.value.add(Calendar.MONTH, if (direction > 0) -1 else 1)
                 }
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Drag handle bar
+            DragHandle(
+                isExpanded = isCalendarExpanded,
+                onToggle = { isCalendarExpanded = !isCalendarExpanded }
+            )
 
-            // Selected date info + divider
-            HorizontalDivider(color = DarkBorder, thickness = 0.5.dp)
+            // Divider
+            HorizontalDivider(color = AppBorder, thickness = 0.5.dp)
 
             // Todo list for selected date
             TodoListSection(
-                date = selectedDate,
+                date = selectedDate.value,
                 todos = todosForDate,
-                onAddTodo = { onAddTodo(selectedDateStart) },
                 onToggleTodo = { todo ->
                     scope.launch {
                         repository.toggleStatus(todo.id)
@@ -139,10 +183,10 @@ fun CalendarScreen(
     // Month picker dialog
     if (showMonthPicker) {
         MonthPickerDialog(
-            currentMonth = currentMonth,
+            currentMonth = currentMonth.value,
             onDismiss = { showMonthPicker = false },
             onMonthSelected = { month ->
-                currentMonth.set(Calendar.MONTH, month)
+                currentMonth.value.set(Calendar.MONTH, month)
                 showMonthPicker = false
             }
         )
@@ -151,10 +195,10 @@ fun CalendarScreen(
     // Year picker dialog
     if (showYearPicker) {
         YearPickerDialog(
-            currentYear = currentMonth.get(Calendar.YEAR),
+            currentYear = currentMonth.value.get(Calendar.YEAR),
             onDismiss = { showYearPicker = false },
             onYearSelected = { year ->
-                currentMonth.set(Calendar.YEAR, year)
+                currentMonth.value.set(Calendar.YEAR, year)
                 showYearPicker = false
             }
         )
@@ -162,28 +206,24 @@ fun CalendarScreen(
 }
 
 @Composable
-private fun MonthYearHeader(
+private fun MonthNavRow(
     calendar: Calendar,
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
     onMonthClick: () -> Unit,
     onYearClick: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("yyyy年 M月", Locale.CHINESE) }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Previous month
         IconButton(onClick = onPreviousMonth) {
-            Text("<", color = TextSecondary, fontSize = 20.sp)
+            Text("<", color = TextSecondary, fontSize = 18.sp)
         }
 
-        // Month and year (clickable)
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
@@ -191,8 +231,8 @@ private fun MonthYearHeader(
             Text(
                 text = "${calendar.get(Calendar.YEAR)}年",
                 color = TextPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier
                     .clickable(onClick = onYearClick)
                     .padding(horizontal = 4.dp)
@@ -200,17 +240,16 @@ private fun MonthYearHeader(
             Text(
                 text = "${calendar.get(Calendar.MONTH) + 1}月",
                 color = TextPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier
                     .clickable(onClick = onMonthClick)
                     .padding(horizontal = 4.dp)
             )
         }
 
-        // Next month
         IconButton(onClick = onNextMonth) {
-            Text(">", color = TextSecondary, fontSize = 20.sp)
+            Text(">", color = TextSecondary, fontSize = 18.sp)
         }
     }
 }
@@ -221,15 +260,15 @@ private fun WeekdayHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
     ) {
-        weekdays.forEach { day ->
+        weekdays.forEachIndexed { index, day ->
             Text(
                 text = day,
                 modifier = Modifier.weight(1f),
                 textAlign = TextAlign.Center,
-                color = TextTertiary,
-                fontSize = 12.sp
+                color = if (index >= 5) CalendarWeekend else TextTertiary,
+                fontSize = 11.sp
             )
         }
     }
@@ -241,47 +280,108 @@ private fun CalendarGrid(
     selectedDate: Calendar,
     today: Calendar,
     repository: TodoRepository,
+    isExpanded: Boolean,
     onDateSelected: (Calendar) -> Unit,
     onSwipe: (Float) -> Unit
 ) {
     val weeks = remember(month) { getWeeksForMonth(month) }
+    // Current week (the week containing selectedDate)
+    val currentWeekIndex = remember(selectedDate) {
+        weeks.indexOfFirst { week ->
+            week.any { day ->
+                day != null && isSameDay(day, selectedDate)
+            }
+        }.coerceAtLeast(0)
+    }
+
+    // Animate height
+    val gridHeight by animateDpAsState(
+        targetValue = if (isExpanded) Dp.Unspecified else 52.dp,
+        label = "gridHeight"
+    )
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragEnd = { onSwipe(0f) },
-                    onHorizontalDrag = { _, dragAmount ->
-                        // Simple threshold-based swipe
-                    }
+            .horizontalScroll(rememberScrollState()) // Ensure horizontal swipe doesn't interfere
+    ) {
+        if (isExpanded) {
+            // Show full month
+            weeks.forEachIndexed { index, week ->
+                WeekRow(
+                    week = week,
+                    month = month,
+                    selectedDate = selectedDate,
+                    today = today,
+                    onDateSelected = onDateSelected
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+            }
+        } else {
+            // Show only current week
+            if (currentWeekIndex < weeks.size) {
+                WeekRow(
+                    week = weeks[currentWeekIndex],
+                    month = month,
+                    selectedDate = selectedDate,
+                    today = today,
+                    onDateSelected = onDateSelected
                 )
             }
-            .verticalScroll(rememberScrollState())
-    ) {
-        weeks.forEach { week ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                for (i in 0..6) {
-                    val day = week[i]
-                    if (day == null) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    } else {
-                        DayCell(
-                            day = day,
-                            isToday = isSameDay(day, today),
-                            isSelected = isSameDay(day, selectedDate),
-                            isCurrentMonth = day.get(Calendar.MONTH) == month.get(Calendar.MONTH),
-                            onClick = { onDateSelected(day) }
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(2.dp))
         }
+    }
+}
+
+@Composable
+private fun WeekRow(
+    week: Array<Calendar?>,
+    month: Calendar,
+    selectedDate: Calendar,
+    today: Calendar,
+    onDateSelected: (Calendar) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        for (i in 0..6) {
+            val day = week[i]
+            if (day == null) {
+                Spacer(modifier = Modifier.weight(1f))
+            } else {
+                DayCell(
+                    day = day,
+                    isToday = isSameDay(day, today),
+                    isSelected = isSameDay(day, selectedDate),
+                    isCurrentMonth = day.get(Calendar.MONTH) == month.get(Calendar.MONTH),
+                    onClick = { onDateSelected(day) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DragHandle(
+    isExpanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Small drag handle bar
+        Box(
+            modifier = Modifier
+                .width(36.dp)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(AppBorder)
+        )
     }
 }
 
@@ -295,15 +395,15 @@ private fun DayCell(
 ) {
     val bgColor by animateColorAsState(
         targetValue = when {
-            isSelected -> CalendarSelectedBg
-            isToday -> CalendarTodayBg.copy(alpha = 0.15f)
+            isSelected -> PrimaryBlueVariant
+            isToday -> CalendarTodayBg
             else -> androidx.compose.ui.graphics.Color.Transparent
         },
         label = "dayBg"
     )
 
     val textColor = when {
-        isSelected -> GreenAccent
+        isSelected -> PrimaryBlue
         isToday -> CalendarToday
         !isCurrentMonth -> TextTertiary.copy(alpha = 0.4f)
         else -> TextPrimary
@@ -311,7 +411,7 @@ private fun DayCell(
 
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .background(bgColor)
             .clickable(onClick = onClick),
@@ -324,16 +424,12 @@ private fun DayCell(
             fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Normal
         )
     }
-
-    // Todo dot indicator
-    // (We'll add this feature later with a separate query)
 }
 
 @Composable
 private fun TodoListSection(
     date: Calendar,
     todos: List<TodoEntity>,
-    onAddTodo: () -> Unit,
     onToggleTodo: (TodoEntity) -> Unit,
     onDeleteTodo: (TodoEntity) -> Unit,
     onEditTodo: (TodoEntity) -> Unit
@@ -393,20 +489,8 @@ private fun TodoListSection(
             }
         }
 
-        // Add button
-        Button(
-            onClick = onAddTodo,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = GreenPrimary,
-                contentColor = GreenOnPrimary
-            ),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text("+ 新建任务", fontWeight = FontWeight.Medium)
-        }
+        // Spacer for FAB
+        Spacer(modifier = Modifier.height(72.dp))
     }
 }
 
@@ -430,8 +514,9 @@ private fun TodoRow(
             .fillMaxWidth()
             .padding(vertical = 3.dp)
             .clickable(onClick = onEdit),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface),
-        shape = RoundedCornerShape(8.dp)
+        colors = CardDefaults.cardColors(containerColor = AppSurface),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(0.5.dp, AppBorder)
     ) {
         Row(
             modifier = Modifier
@@ -446,7 +531,7 @@ private fun TodoRow(
                 colors = CheckboxDefaults.colors(
                     checkedColor = CompletedGreen,
                     uncheckedColor = TextTertiary,
-                    checkmarkColor = DarkBackground
+                    checkmarkColor = AppSurface
                 )
             )
 
@@ -456,7 +541,7 @@ private fun TodoRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = todo.title,
-                    color = if (isCompleted) TextTertiary else TextPrimary,
+                    color = if (isCompleted) CompletedText else TextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -501,7 +586,6 @@ private fun getWeeksForMonth(calendar: Calendar): List<Array<Calendar?>> {
     val daysInMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
     val month = calendar.get(Calendar.MONTH)
 
-    // Calculate how many weeks needed
     val totalDays = startOffset + daysInMonth
     val numWeeks = (totalDays + 6) / 7
 
@@ -509,17 +593,12 @@ private fun getWeeksForMonth(calendar: Calendar): List<Array<Calendar?>> {
         val week = arrayOfNulls<Calendar>(7)
         for (d in 0..6) {
             val day = cal.clone() as Calendar
-            week[d] = if (day.get(Calendar.MONTH) == month || 
-                (w == 0 && day.get(Calendar.MONTH) != month) ||
-                (w == numWeeks - 1 && day.get(Calendar.MONTH) != month)) {
-                day
-            } else null
+            week[d] = day
             cal.add(Calendar.DAY_OF_MONTH, 1)
         }
         weeks.add(week)
     }
 
-    // Reset calendar
     cal.timeInMillis = calendar.timeInMillis
     return weeks
 }
@@ -553,10 +632,14 @@ private fun MonthPickerDialog(
                             TextButton(
                                 onClick = { onMonthSelected(idx) },
                                 colors = ButtonDefaults.textButtonColors(
-                                    contentColor = if (idx == currentMonthIndex) GreenAccent else TextPrimary
+                                    contentColor = if (idx == currentMonthIndex) PrimaryBlue else TextPrimary
                                 )
                             ) {
-                                Text(month, fontWeight = if (idx == currentMonthIndex) FontWeight.Bold else FontWeight.Normal)
+                                Text(
+                                    month,
+                                    fontWeight = if (idx == currentMonthIndex) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (idx == currentMonthIndex) PrimaryBlue else TextPrimary
+                                )
                             }
                         }
                     }
@@ -568,7 +651,7 @@ private fun MonthPickerDialog(
                 Text("取消", color = TextSecondary)
             }
         },
-        containerColor = DarkSurface,
+        containerColor = AppSurface,
         titleContentColor = TextPrimary
     )
 }
@@ -599,12 +682,13 @@ private fun YearPickerDialog(
                             TextButton(
                                 onClick = { onYearSelected(year) },
                                 colors = ButtonDefaults.textButtonColors(
-                                    contentColor = if (year == currentYear) GreenAccent else TextPrimary
+                                    contentColor = if (year == currentYear) PrimaryBlue else TextPrimary
                                 )
                             ) {
                                 Text(
                                     "${year}年",
-                                    fontWeight = if (year == currentYear) FontWeight.Bold else FontWeight.Normal
+                                    fontWeight = if (year == currentYear) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (year == currentYear) PrimaryBlue else TextPrimary
                                 )
                             }
                         }
@@ -617,7 +701,7 @@ private fun YearPickerDialog(
                 Text("取消", color = TextSecondary)
             }
         },
-        containerColor = DarkSurface,
+        containerColor = AppSurface,
         titleContentColor = TextPrimary
     )
 }

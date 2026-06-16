@@ -3,25 +3,26 @@ package com.kanochi.todo.ui.theme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 
-private val DarkColorScheme = darkColorScheme(
-    primary = GreenPrimary,
-    onPrimary = GreenOnPrimary,
-    primaryContainer = GreenPrimaryVariant,
-    background = DarkBackground,
+private val LightColorScheme = lightColorScheme(
+    primary = PrimaryBlue,
+    onPrimary = AppSurface,
+    primaryContainer = PrimaryBlueVariant,
+    background = AppBackground,
     onBackground = TextPrimary,
-    surface = DarkSurface,
+    surface = AppSurface,
     onSurface = TextPrimary,
-    surfaceVariant = DarkSurfaceVariant,
+    surfaceVariant = AppSurfaceVariant,
     onSurfaceVariant = TextSecondary,
-    outline = DarkBorder,
+    outline = AppBorder,
+    outlineVariant = AppBorder,
     error = HighPriority,
-    onError = GreenOnPrimary
+    onError = AppSurface
 )
 
 @Composable
 fun TodoAppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = LightColorScheme,
         content = content
     )
 }

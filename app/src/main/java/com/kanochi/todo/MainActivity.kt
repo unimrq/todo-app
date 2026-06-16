@@ -8,12 +8,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.kanochi.todo.data.local.TodoDatabase
+import com.kanochi.todo.data.model.*
 import com.kanochi.todo.data.repository.TodoRepository
 import com.kanochi.todo.ui.calendar.CalendarScreen
-import com.kanochi.todo.ui.theme.DarkBackground
+import com.kanochi.todo.ui.theme.AppBackground
 import com.kanochi.todo.ui.theme.TodoAppTheme
 import com.kanochi.todo.ui.todo.AddTodoDialog
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 class MainActivity : ComponentActivity() {
 
@@ -29,7 +32,7 @@ class MainActivity : ComponentActivity() {
             TodoAppTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
-                    color = DarkBackground
+                    color = AppBackground
                 ) {
                     var showAddDialog by remember { mutableStateOf(false) }
                     var addDialogDate by remember { mutableStateOf<Long?>(null) }
@@ -47,19 +50,20 @@ class MainActivity : ComponentActivity() {
 
                     if (showAddDialog) {
                         AddTodoDialog(
-                            initialDate = addDialogDate,
                             onDismiss = {
                                 showAddDialog = false
                                 addDialogDate = null
                             },
-                            onConfirm = { title, description, priority, category, dueDate ->
+                            onConfirm = { text ->
                                 scope.launch {
+                                    // Parse user's text input
+                                    val parsed = parseTaskText(text, addDialogDate)
                                     repository.createTodo(
-                                        title = title,
-                                        description = description,
-                                        priority = priority,
-                                        category = category,
-                                        dueDate = dueDate
+                                        title = parsed.title,
+                                        description = parsed.description,
+                                        priority = parsed.priority,
+                                        category = parsed.category,
+                                        dueDate = parsed.dueDate
                                     )
                                 }
                                 showAddDialog = false
@@ -71,4 +75,51 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /**
+     * Parse plain text task input into structured fields.
+     * User just types something like:
+     * - "买猫粮 高优先级 明天" → title=买猫粮, priority=high, dueDate=tomorrow
+     * - "写报告" → title=写报告, priority=medium, dueDate=selected date
+     */
+    private fun parseTaskText(
+        text: String,
+        selectedDate: Long?
+    ): ParsedTask {
+        var title = text
+        var priority = "medium"
+        val lower = text.lowercase(Locale.getDefault())
+
+        // Detect priority keywords
+        if (lower.contains("高优先级") || lower.contains("重要") || lower.contains("紧急")) {
+            priority = "high"
+            title = title.replace(Regex("[（(]?高优先级[）)]?"), "").trim()
+            title = title.replace(Regex("[（(]?重要[）)]?"), "").trim()
+            title = title.replace(Regex("[（(]?紧急[）)]?"), "").trim()
+        }
+        if (lower.contains("低优先级") || lower.contains("不急")) {
+            priority = "low"
+            title = title.replace(Regex("[（(]?低优先级[）)]?"), "").trim()
+            title = title.replace(Regex("[（(]?不急[）)]?"), "").trim()
+        }
+
+        // Default due date = selected calendar date
+        val dueDate = selectedDate
+
+        return ParsedTask(
+            title = title.ifBlank { text },
+            description = "",
+            priority = priority,
+            category = "",
+            dueDate = dueDate
+        )
+    }
 }
+
+data class ParsedTask(
+    val title: String,
+    val description: String,
+    val priority: String,
+    val category: String,
+    val dueDate: Long?
+)
