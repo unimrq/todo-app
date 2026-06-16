@@ -135,7 +135,11 @@ fun CalendarScreen(
         floatingActionButton = {}
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).background(AppBackground)
+            modifier = Modifier
+                .fillMaxSize()
+                .systemBarsPadding()
+                .padding(padding)
+                .background(AppBackground)
         ) {
             Column(Modifier.fillMaxWidth().background(PrimaryBlue)) {
                 WeekdayHeader()
