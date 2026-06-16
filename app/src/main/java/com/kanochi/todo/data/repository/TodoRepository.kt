@@ -53,13 +53,22 @@ class TodoRepository(private val dao: TodoDao) {
         dao.updateStatus(id, newStatus)
     }
 
-    // Server sync — replace local data with server data
+    // Server sync — merge: upsert changed/new, delete removed
     suspend fun refreshFromServer(): Boolean = withContext(Dispatchers.IO) {
         try {
-            val serverTodos = TodoApi.service.getTodos()
-            val entities = serverTodos.map { it.toEntity() }
-            dao.deleteAll()
-            dao.insertTodos(entities)
+            val serverList = TodoApi.service.getTodos()
+            val serverMap = serverList.associateBy { it.id }
+            val localMap = dao.getTodosUpdatedSince(0).associateBy { it.id }
+
+            val toUpsert = serverList.filter { s ->
+                val local = localMap[s.id]
+                local == null || local.updatedAt != s.updated_at
+            }.map { it.toEntity() }
+
+            val toDelete = localMap.keys - serverMap.keys
+
+            if (toUpsert.isNotEmpty()) dao.insertTodos(toUpsert)
+            toDelete.forEach { dao.deleteTodoById(it) }
             true
         } catch (_: Exception) {
             false
