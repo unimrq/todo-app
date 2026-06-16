@@ -16,6 +16,9 @@ interface TodoApiService {
 
     @PUT("todos/{id}")
     suspend fun updateTodo(@Path("id") id: String, @Body todo: TodoUpdateDto): TodoDto
+
+    @DELETE("todos/{id}")
+    suspend fun deleteTodo(@Path("id") id: String)
 }
 
 data class TodoUpdateDto(

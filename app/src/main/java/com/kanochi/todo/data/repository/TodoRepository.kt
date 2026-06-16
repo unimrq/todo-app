@@ -45,6 +45,9 @@ class TodoRepository(private val dao: TodoDao) {
     }
 
     suspend fun deleteTodo(id: String) {
+        try {
+            TodoApi.service.deleteTodo(id)
+        } catch (_: Exception) { }
         dao.deleteTodoById(id)
     }
 

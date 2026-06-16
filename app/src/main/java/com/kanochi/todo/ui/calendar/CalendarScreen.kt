@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -57,6 +58,7 @@ fun CalendarScreen(
     var showYearMonthPicker by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
     var editingTodo by remember { mutableStateOf<TodoEntity?>(null) }
+    var deletingTodo by remember { mutableStateOf<TodoEntity?>(null) }
 
     val selectedDateStart = remember(selectedDate.value) {
         val c = selectedDate.value.clone() as Calendar
@@ -208,7 +210,7 @@ fun CalendarScreen(
                             TodoRow(todo,
                                 onToggle = { scope.launch { repository.toggleStatus(todo.id) } },
                                 onEdit = { editingTodo = todo },
-                                onDelete = { scope.launch { repository.deleteTodo(todo.id) } })
+                                onDelete = { deletingTodo = todo })
                         }
                     }
                     item { Spacer(Modifier.height(80.dp)) }
@@ -240,6 +242,29 @@ fun CalendarScreen(
                 }
                 editingTodo = null
             }
+        )
+    }
+
+    deletingTodo?.let { todo ->
+        AlertDialog(
+            onDismissRequest = { deletingTodo = null },
+            title = { Text("删除任务", color = TextPrimary, fontWeight = FontWeight.Bold) },
+            text = { Text("确定删除「${todo.title}」？", color = TextSecondary) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            repository.deleteTodo(todo.id)
+                        }
+                        deletingTodo = null
+                    }
+                ) { Text("删除", color = HighPriority) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingTodo = null }) { Text("取消", color = TextSecondary) }
+            },
+            containerColor = AppSurface,
+            titleContentColor = TextPrimary
         )
     }
 }
@@ -394,7 +419,8 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
     val done = todo.status == "completed"
     val scope = rememberCoroutineScope()
     val offset = remember { Animatable(0f) }
-    val actionWidth = 150f
+    val density = LocalDensity.current
+    val actionWidth = with(density) { 160.dp.toPx() }
 
     val priority = Priority.fromString(todo.priority)
     val pc = when (priority) { Priority.HIGH -> HighPriority; Priority.MEDIUM -> MediumPriority; Priority.LOW -> LowPriority }
