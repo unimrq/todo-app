@@ -105,17 +105,11 @@ fun CalendarScreen(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = {
-                            if (isExpanded) {
-                                val cm = currentMonth.value.clone() as Calendar
-                                cm.add(Calendar.MONTH, -1)
-                                currentMonth.value = cm
-                            } else {
-                                val sd = selectedDate.value.clone() as Calendar
-                                sd.add(Calendar.DAY_OF_MONTH, -7)
-                                selectedDate.value = sd
-                            }
+                            val cm = currentMonth.value.clone() as Calendar
+                            cm.add(Calendar.MONTH, -1)
+                            currentMonth.value = cm
                         }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "上一周/月", tint = AppSurface)
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "上一月", tint = AppSurface)
                         }
                         Text(
                             text = "${currentMonth.value.get(Calendar.YEAR)}年${currentMonth.value.get(Calendar.MONTH) + 1}月",
@@ -123,17 +117,11 @@ fun CalendarScreen(
                             modifier = Modifier.clickable { showYearMonthPicker = true }
                         )
                         IconButton(onClick = {
-                            if (isExpanded) {
-                                val cm = currentMonth.value.clone() as Calendar
-                                cm.add(Calendar.MONTH, 1)
-                                currentMonth.value = cm
-                            } else {
-                                val sd = selectedDate.value.clone() as Calendar
-                                sd.add(Calendar.DAY_OF_MONTH, 7)
-                                selectedDate.value = sd
-                            }
+                            val cm = currentMonth.value.clone() as Calendar
+                            cm.add(Calendar.MONTH, 1)
+                            currentMonth.value = cm
                         }) {
-                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "下一周/月", tint = AppSurface)
+                            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "下一月", tint = AppSurface)
                         }
                     }
                 },
@@ -299,7 +287,7 @@ private fun CalendarArea(
     onDragEnd: () -> Unit
 ) {
     val weeks = remember(month) { getWeeksForMonth(month) }
-    val weekHeight = 44.dp
+    val weekHeight = 40.dp
     val weekSpacer = 2.dp
     val density = LocalDensity.current
 
@@ -510,7 +498,7 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                                 colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
                             Spacer(Modifier.width(6.dp))
 
-                            Column(Modifier.weight(1f).padding(vertical = 12.dp)) {
+                            Column(Modifier.weight(1f).heightIn(min = 56.dp).padding(vertical = 12.dp)) {
                                 Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
                                 if (todo.description.isNotBlank()) {
