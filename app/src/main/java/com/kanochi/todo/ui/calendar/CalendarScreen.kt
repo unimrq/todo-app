@@ -1,10 +1,10 @@
 package com.kanochi.todo.ui.calendar
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,12 +23,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kanochi.todo.data.model.*
@@ -55,6 +54,7 @@ fun CalendarScreen(
     val selectedDate = remember { mutableStateOf(Calendar.getInstance()) }
     var showYearMonthPicker by remember { mutableStateOf(false) }
     var isRefreshing by remember { mutableStateOf(false) }
+    var editingTodo by remember { mutableStateOf<TodoEntity?>(null) }
 
     val selectedDateStart = remember(selectedDate.value) {
         val c = selectedDate.value.clone() as Calendar
@@ -203,7 +203,9 @@ fun CalendarScreen(
                         }
                     } else {
                         items(todosForDate, key = { it.id }) { todo ->
-                            TodoRow(todo, onToggle = { scope.launch { repository.toggleStatus(todo.id) } },
+                            TodoRow(todo,
+                                onToggle = { scope.launch { repository.toggleStatus(todo.id) } },
+                                onEdit = { editingTodo = todo },
                                 onDelete = { scope.launch { repository.deleteTodo(todo.id) } })
                         }
                     }
@@ -222,6 +224,19 @@ fun CalendarScreen(
                 currentMonth.value.set(Calendar.YEAR, y)
                 currentMonth.value.set(Calendar.MONTH, m)
                 showYearMonthPicker = false
+            }
+        )
+    }
+
+    editingTodo?.let { todo ->
+        TodoEditDialog(
+            todo = todo,
+            onDismiss = { editingTodo = null },
+            onSave = { updated ->
+                scope.launch {
+                    repository.updateTodo(updated)
+                }
+                editingTodo = null
             }
         )
     }
@@ -373,25 +388,111 @@ private fun DayCell(day: Calendar, isToday: Boolean, isSelected: Boolean, isCurr
 }
 
 @Composable
-private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onDelete: () -> Unit) {
+private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
     val done = todo.status == "completed"
-    val pc = when (Priority.fromString(todo.priority)) { Priority.HIGH -> HighPriority; Priority.MEDIUM -> MediumPriority; Priority.LOW -> LowPriority }
-    Card(Modifier.fillMaxWidth().padding(vertical = 3.dp),
-        colors = CardDefaults.cardColors(containerColor = AppSurface), shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(0.5.dp, AppBorder)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+    val scope = rememberCoroutineScope()
+    val offset = remember { Animatable(0f) }
+    val actionWidth = 150f
+
+    val priority = Priority.fromString(todo.priority)
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clipToBounds()
+    ) {
+        // Background: action buttons on the right
+        Row(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(
+                onClick = {
+                    scope.launch { offset.animateTo(0f) }
+                    onEdit()
+                }
+            ) {
+                Text("编辑", color = PrimaryBlue, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            TextButton(
+                onClick = {
+                    scope.launch { offset.animateTo(0f) }
+                    onDelete()
+                }
+            ) {
+                Text("删除", color = HighPriority, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            }
+        }
+
+        // Foreground: swipeable task content
+        Row(
+            Modifier
+                .offset { IntOffset(offset.value.roundToInt(), 0) }
+                .fillMaxWidth()
+                .background(AppSurface)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch {
+                                if (offset.value < -actionWidth / 3) {
+                                    offset.animateTo(-actionWidth)
+                                } else {
+                                    offset.animateTo(0f)
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            scope.launch {
+                                val target = (offset.value + dragAmount).coerceIn(-actionWidth, 0f)
+                                offset.snapTo(target)
+                            }
+                        }
+                    )
+                }
+                .then(
+                    if (offset.value < -10f) Modifier.clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) {
+                        scope.launch { offset.animateTo(0f) }
+                    } else Modifier
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Checkbox(checked = done, onCheckedChange = { onToggle() },
                 colors = CheckboxDefaults.colors(checkedColor = CompletedGreen, uncheckedColor = TextTertiary, checkmarkColor = AppSurface))
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
                 Text(todo.title, color = if (done) CompletedText else TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None)
-                if (todo.description.isNotBlank()) Text(todo.description, color = TextTertiary, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Priority chip
+                    val pc = when (priority) { Priority.HIGH -> HighPriority; Priority.MEDIUM -> MediumPriority; Priority.LOW -> LowPriority }
+                    Box(
+                        Modifier
+                            .background(pc.copy(alpha = 0.12f), RoundedCornerShape(3.dp))
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(priority.display, color = pc, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                    }
+                    // Category
+                    if (todo.category.isNotBlank()) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(todo.category, color = TextTertiary, fontSize = 11.sp, maxLines = 1)
+                    }
+                }
             }
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.size(8.dp).clip(CircleShape).background(pc))
+            // Right-side spacing (actions are behind)
+            Spacer(Modifier.width(4.dp))
         }
     }
+
+    // Bottom separator
+    HorizontalDivider(color = AppBorder.copy(alpha = 0.4f), thickness = 0.5.dp)
 }
 
 // Helpers
@@ -445,4 +546,88 @@ private fun YearMonthPickerDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) } },
         containerColor = AppSurface, titleContentColor = TextPrimary)
+}
+
+@Composable
+private fun TodoEditDialog(
+    todo: TodoEntity,
+    onDismiss: () -> Unit,
+    onSave: (TodoEntity) -> Unit
+) {
+    val priorities = listOf("high", "medium", "low")
+    val priorityLabels = listOf("高", "中", "低")
+    val pc = { p: String -> when (p) { "high" -> HighPriority; "medium" -> MediumPriority; else -> LowPriority } }
+
+    var title by remember { mutableStateOf(todo.title) }
+    var description by remember { mutableStateOf(todo.description) }
+    var category by remember { mutableStateOf(todo.category) }
+    var priority by remember { mutableStateOf(todo.priority) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("编辑任务", color = TextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("标题") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, focusedLabelColor = PrimaryBlue)
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("描述") },
+                    singleLine = false,
+                    maxLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, focusedLabelColor = PrimaryBlue)
+                )
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text("分类") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue, focusedLabelColor = PrimaryBlue)
+                )
+                // Priority selector
+                Text("优先级", fontSize = 13.sp, color = TextSecondary)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    priorities.forEachIndexed { i, p ->
+                        val isSelected = priority == p
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { priority = p },
+                            label = { Text(priorityLabels[i], fontSize = 13.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = pc(p).copy(alpha = 0.12f),
+                                selectedLabelColor = pc(p)
+                            )
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onSave(todo.copy(
+                            title = title.trim(),
+                            description = description.trim(),
+                            category = category.trim(),
+                            priority = priority,
+                            updatedAt = System.currentTimeMillis()
+                        ))
+                    }
+                },
+                enabled = title.isNotBlank()
+            ) { Text("保存", color = PrimaryBlue) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
+        },
+        containerColor = AppSurface,
+        titleContentColor = TextPrimary
+    )
 }
