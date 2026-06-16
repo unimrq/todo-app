@@ -524,7 +524,12 @@ private fun TodoRow(todo: TodoEntity, onToggle: () -> Unit, onEdit: () -> Unit, 
                 }
                 if (todo.category.isNotBlank()) {
                     if (todo.description.isNotBlank()) Spacer(Modifier.height(2.dp))
-                    Text(todo.category, color = TextTertiary, fontSize = 11.sp, maxLines = 1)
+                    val catColor = when (todo.category) {
+                        "日程" -> PrimaryBlue; "工作" -> HighPriority; "学习" -> MediumPriority
+                        "锻炼" -> CompletedGreen; "生活" -> PrimaryBlueLight; else -> TextTertiary
+                    }
+                    Text("#${todo.category}", color = catColor, fontSize = 11.sp, maxLines = 1,
+                        fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -604,50 +609,43 @@ private fun TodoEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("编辑任务", color = TextPrimary, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                // Title - no outline
-                Column {
-                    Text("标题", color = TextSecondary, fontSize = 12.sp)
-                    TextField(
-                        value = title,
-                        onValueChange = { title = it },
-                        placeholder = { Text("任务标题", color = TextTertiary) },
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = PrimaryBlue,
-                            unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
-                            cursorColor = PrimaryBlue,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 15.sp)
-                    )
-                }
+                // Title - big bold, no outline, no label
+                TextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    placeholder = { Text("任务标题", color = TextTertiary) },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = PrimaryBlue,
+                        unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
+                        cursorColor = PrimaryBlue,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    textStyle = LocalTextStyle.current.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                )
 
-                // Description - no outline, 2 lines
-                Column {
-                    Text("描述", color = TextSecondary, fontSize = 12.sp)
-                    TextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        placeholder = { Text("任务描述（可选）", color = TextTertiary) },
-                        maxLines = 2,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = PrimaryBlue,
-                            unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
-                            cursorColor = PrimaryBlue,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        ),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
-                    )
-                }
+                // Description - 2 lines, no outline, no label
+                TextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    placeholder = { Text("任务描述（可选）", color = TextTertiary) },
+                    maxLines = 2,
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = PrimaryBlue,
+                        unfocusedIndicatorColor = AppBorder.copy(alpha = 0.5f),
+                        cursorColor = PrimaryBlue,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
+                    ),
+                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+                )
 
                 // Category - label left, buttons right
                 Row(verticalAlignment = Alignment.CenterVertically) {
