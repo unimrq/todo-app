@@ -192,18 +192,20 @@ fun CalendarScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (todosForDate.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("暂无待办事项", color = TextTertiary, fontSize = 14.sp)
-                    }
-                } else {
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                    if (todosForDate.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+                                Text("暂无待办事项", color = TextTertiary, fontSize = 14.sp)
+                            }
+                        }
+                    } else {
                         items(todosForDate, key = { it.id }) { todo ->
                             TodoRow(todo, onToggle = { scope.launch { repository.toggleStatus(todo.id) } },
                                 onDelete = { scope.launch { repository.deleteTodo(todo.id) } })
                         }
-                        item { Spacer(Modifier.height(80.dp)) }
                     }
+                    item { Spacer(Modifier.height(80.dp)) }
                 }
             }
         }
