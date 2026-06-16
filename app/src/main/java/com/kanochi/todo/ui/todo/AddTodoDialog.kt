@@ -1,10 +1,8 @@
 package com.kanochi.todo.ui.todo
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -17,7 +15,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.kanochi.todo.data.model.Priority
 import com.kanochi.todo.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,20 +32,19 @@ fun AddTodoDialog(
     onConfirm: (title: String, description: String, priority: String, category: String, dueDate: Long?) -> Unit
 ) {
     var text by remember { mutableStateOf("") }
-    var selectedPriority by remember { mutableStateOf("medium") }
+    var selectedPriority by remember { mutableStateOf("default") }
     var selectedCategory by remember { mutableStateOf("") }
-    var hasDueDate by remember { mutableStateOf(initialDate != null) }
+    var selectedDateOption by remember { mutableStateOf(if (initialDate != null) "custom" else "none") }
     var dueDate by remember { mutableStateOf(initialDate ?: 0L) }
     var showDatePicker by remember { mutableStateOf(false) }
-    // Server status
     var serverOnline by remember { mutableStateOf<Boolean?>(null) }
     val scope = rememberCoroutineScope()
 
-    // Check server status
+    // Server health check
     LaunchedEffect(Unit) {
         try {
             withContext(Dispatchers.IO) {
-                val url = URL("http://10.0.2.2:8765/health")  // Android emulator localhost
+                val url = URL("http://10.0.2.2:8765/health")
                 val conn = url.openConnection() as HttpURLConnection
                 conn.connectTimeout = 3000
                 conn.readTimeout = 3000
@@ -56,213 +52,187 @@ fun AddTodoDialog(
                 serverOnline = code == 200
                 conn.disconnect()
             }
-        } catch (_: Exception) {
-            serverOnline = false
-        }
+        } catch (_: Exception) { serverOnline = false }
+    }
+
+    val todayCal = remember { Calendar.getInstance() }
+    val todayStart: Long = remember {
+        val c = todayCal.clone() as Calendar
+        c.set(Calendar.HOUR_OF_DAY, 0); c.set(Calendar.MINUTE, 0)
+        c.set(Calendar.SECOND, 0); c.set(Calendar.MILLISECOND, 0)
+        c.timeInMillis
+    }
+    val tomorrowStart = todayStart + 86400000L
+
+    // Compute due date based on selection
+    val computedDueDate: Long? = when (selectedDateOption) {
+        "today" -> todayStart
+        "tomorrow" -> tomorrowStart
+        "custom" -> if (dueDate > 0) dueDate else null
+        else -> null
     }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = AppSurface)
         ) {
             Column(
-                modifier = Modifier
-                    .padding(20.dp)
-                    .verticalScroll(rememberScrollState())
+                modifier = Modifier.padding(20.dp).verticalScroll(rememberScrollState())
             ) {
-                // Title row with server indicator
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                // Title with server indicator
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "新建任务",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        modifier = Modifier.weight(1f)
+                        "新建任务", fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                        color = TextPrimary, modifier = Modifier.weight(1f)
                     )
-                    // Server status indicator (red/green light)
                     Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when (serverOnline) {
-                                    true -> CompletedGreen
-                                    false -> HighPriority
-                                    null -> TextTertiary // loading
-                                }
-                            )
+                        modifier = Modifier.size(10.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(when (serverOnline) {
+                                true -> CompletedGreen; false -> HighPriority; null -> TextTertiary
+                            })
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // Text input (3 lines)
                 OutlinedTextField(
-                    value = text,
-                    onValueChange = { text = it },
+                    value = text, onValueChange = { text = it },
                     placeholder = { Text("输入任务内容...", color = TextTertiary) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 80.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
                     maxLines = 3,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryBlue,
-                        unfocusedBorderColor = AppBorder,
-                        focusedLabelColor = PrimaryBlue,
-                        unfocusedLabelColor = TextSecondary,
-                        cursorColor = PrimaryBlue,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
+                        focusedBorderColor = PrimaryBlue, unfocusedBorderColor = AppBorder,
+                        cursorColor = PrimaryBlue, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary
                     ),
                     shape = RoundedCornerShape(8.dp)
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(16.dp))
 
-                // Priority
+                // Priority chips
                 Text("优先级", color = TextSecondary, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(Modifier.height(6.dp))
+                val priorityOptions = listOf(
+                    Triple("default", "默认", TextTertiary),
+                    Triple("high", "高", HighPriority),
+                    Triple("medium", "中", MediumPriority),
+                    Triple("low", "低", PrimaryBlue)
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Priority.entries.forEach { priority ->
-                        val isSelected = selectedPriority == priority.name.lowercase()
-                        val pColor = when (priority) {
-                            Priority.HIGH -> HighPriority
-                            Priority.MEDIUM -> MediumPriority
-                            Priority.LOW -> PrimaryBlue
-                        }
+                    priorityOptions.forEach { (value, label, color) ->
+                        val isSel = selectedPriority == value
                         FilterChip(
-                            selected = isSelected,
-                            onClick = { selectedPriority = priority.name.lowercase() },
-                            label = {
-                                Text(
-                                    priority.display,
-                                    fontSize = 13.sp,
-                                    color = if (isSelected) pColor else TextSecondary
-                                )
-                            },
+                            selected = isSel,
+                            onClick = { selectedPriority = value },
+                            label = { Text(label, fontSize = 12.sp, color = if (isSel) color else TextSecondary) },
                             colors = FilterChipDefaults.filterChipColors(
-                                containerColor = AppSurfaceVariant,
-                                selectedContainerColor = AppSurfaceVariant
+                                containerColor = AppSurfaceVariant, selectedContainerColor = AppSurfaceVariant
                             ),
                             border = FilterChipDefaults.filterChipBorder(
-                                borderColor = AppBorder,
-                                selectedBorderColor = pColor,
-                                enabled = true,
-                                selected = isSelected
+                                borderColor = AppBorder, selectedBorderColor = color, enabled = true, selected = isSel
                             )
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
 
-                // Due date
+                // Date chips
+                Text("截止日期", color = TextSecondary, fontSize = 13.sp)
+                Spacer(Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("截止日期", color = TextSecondary, fontSize = 13.sp)
-                    Switch(
-                        checked = hasDueDate,
-                        onCheckedChange = { hasDueDate = it },
-                        colors = SwitchDefaults.colors(
-                            checkedTrackColor = PrimaryBlue,
-                            checkedThumbColor = AppSurface
-                        )
-                    )
-                }
-
-                if (hasDueDate) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val dateFormat = remember { SimpleDateFormat("yyyy年M月d日", Locale.CHINESE) }
-                    OutlinedCard(
-                        onClick = { showDatePicker = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.outlinedCardColors(containerColor = AppSurfaceVariant),
-                        border = CardDefaults.outlinedCardBorder().copy(
-                            brush = androidx.compose.ui.graphics.SolidColor(AppBorder)
-                        )
-                    ) {
-                        Text(
-                            text = if (dueDate > 0) dateFormat.format(Date(dueDate)) else "选择日期",
-                            modifier = Modifier.padding(12.dp),
-                            color = if (dueDate > 0) TextPrimary else TextTertiary,
-                            fontSize = 14.sp
+                    val dateOptions = listOf("none" to "无", "today" to "今天", "tomorrow" to "明天", "custom" to "选择…")
+                    dateOptions.forEach { (value, label) ->
+                        val isSel = selectedDateOption == value
+                        FilterChip(
+                            selected = isSel,
+                            onClick = {
+                                selectedDateOption = value
+                                if (value == "custom") showDatePicker = true
+                            },
+                            label = {
+                                Text(
+                                    text = if (isSel && value == "custom") {
+                                        SimpleDateFormat("M/d", Locale.CHINESE).format(Date(dueDate))
+                                    } else label,
+                                    fontSize = 12.sp, color = if (isSel) PrimaryBlue else TextSecondary
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = AppSurfaceVariant, selectedContainerColor = AppSurfaceVariant
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                borderColor = AppBorder, selectedBorderColor = PrimaryBlue, enabled = true, selected = isSel
+                            )
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(16.dp))
 
-                // Category
+                // Category chips
                 Text("分类", color = TextSecondary, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = selectedCategory,
-                    onValueChange = { selectedCategory = it },
-                    placeholder = { Text("分类名称（可选）", color = TextTertiary) },
+                Spacer(Modifier.height(6.dp))
+                val categoryOptions = listOf("", "工作", "生活", "学习", "其他")
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PrimaryBlue,
-                        unfocusedBorderColor = AppBorder,
-                        focusedLabelColor = PrimaryBlue,
-                        unfocusedLabelColor = TextSecondary,
-                        cursorColor = PrimaryBlue,
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                )
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    categoryOptions.forEach { cat ->
+                        val isSel = selectedCategory == cat
+                        FilterChip(
+                            selected = isSel,
+                            onClick = { selectedCategory = if (isSel && cat.isNotEmpty()) "" else cat },
+                            label = { Text(if (cat.isEmpty()) "无" else cat, fontSize = 12.sp, color = if (isSel) PrimaryBlue else TextSecondary) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = AppSurfaceVariant, selectedContainerColor = AppSurfaceVariant
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                borderColor = AppBorder, selectedBorderColor = PrimaryBlue, enabled = true, selected = isSel
+                            )
+                        )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
                 // Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("取消", color = TextSecondary)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
+                    Spacer(Modifier.width(8.dp))
                     Button(
                         onClick = {
                             if (text.isNotBlank()) {
                                 onConfirm(
-                                    text.trim(),
-                                    "",
-                                    selectedPriority,
+                                    text.trim(), "",
+                                    if (selectedPriority == "default") "medium" else selectedPriority,
                                     selectedCategory,
-                                    if (hasDueDate && dueDate > 0) dueDate else null
+                                    computedDueDate
                                 )
                             }
                         },
                         enabled = text.isNotBlank(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryBlue,
-                            contentColor = AppSurface
-                        ),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue, contentColor = AppSurface),
                         shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("创建")
-                    }
+                    ) { Text("创建") }
                 }
             }
         }
     }
 
-    // Date picker
     if (showDatePicker) {
         DatePickerDialog(
             initialDate = if (dueDate > 0) dueDate else System.currentTimeMillis(),
@@ -277,56 +247,23 @@ fun AddTodoDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DatePickerDialog(
-    initialDate: Long,
-    onDismiss: () -> Unit,
-    onConfirm: (Long) -> Unit
-) {
-    val state = rememberDatePickerState(
-        initialSelectedDateMillis = if (initialDate > 0) initialDate else null
-    )
-
+private fun DatePickerDialog(initialDate: Long, onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
+    val state = rememberDatePickerState(initialSelectedDateMillis = if (initialDate > 0) initialDate else null)
     Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = AppSurface)
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp)
-            ) {
-                DatePicker(
-                    state = state,
-                    colors = DatePickerDefaults.colors(
-                        containerColor = AppSurface,
-                        titleContentColor = TextPrimary,
-                        headlineContentColor = TextPrimary,
-                        weekdayContentColor = TextSecondary,
-                        subheadContentColor = TextSecondary,
-                        yearContentColor = TextPrimary,
-                        currentYearContentColor = PrimaryBlue,
-                        selectedYearContentColor = AppSurface,
-                        dayContentColor = TextPrimary,
-                        selectedDayContentColor = AppSurface,
-                        selectedDayContainerColor = PrimaryBlue,
-                        dayInSelectionRangeContentColor = TextPrimary,
-                        dayInSelectionRangeContainerColor = PrimaryBlueVariant,
-                        todayContentColor = BlueAccent,
-                        todayDateBorderColor = BlueAccent
-                    )
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("取消", color = TextSecondary)
-                    }
-                    TextButton(onClick = {
-                        state.selectedDateMillis?.let { onConfirm(it) }
-                    }) {
-                        Text("确定", color = PrimaryBlue)
-                    }
+        Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = AppSurface)) {
+            Column(Modifier.padding(16.dp)) {
+                DatePicker(state = state, colors = DatePickerDefaults.colors(
+                    containerColor = AppSurface, titleContentColor = TextPrimary, headlineContentColor = TextPrimary,
+                    weekdayContentColor = TextSecondary, subheadContentColor = TextSecondary,
+                    yearContentColor = TextPrimary, currentYearContentColor = PrimaryBlue,
+                    selectedYearContentColor = AppSurface, dayContentColor = TextPrimary,
+                    selectedDayContentColor = AppSurface, selectedDayContainerColor = PrimaryBlue,
+                    dayInSelectionRangeContentColor = TextPrimary, dayInSelectionRangeContainerColor = PrimaryBlueVariant,
+                    todayContentColor = BlueAccent, todayDateBorderColor = BlueAccent
+                ))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) { Text("取消", color = TextSecondary) }
+                    TextButton(onClick = { state.selectedDateMillis?.let { onConfirm(it) } }) { Text("确定", color = PrimaryBlue) }
                 }
             }
         }
