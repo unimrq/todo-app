@@ -82,11 +82,13 @@ fun CalendarScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = {
                             if (expandProgress > 0.5f) {
-                                currentMonth.value = currentMonth.value.clone() as Calendar
-                                currentMonth.value.add(Calendar.MONTH, -1)
+                                val cm = currentMonth.value.clone() as Calendar
+                                cm.add(Calendar.MONTH, -1)
+                                currentMonth.value = cm
                             } else {
-                                selectedDate.value = selectedDate.value.clone() as Calendar
-                                selectedDate.value.add(Calendar.DAY_OF_MONTH, -7)
+                                val sd = selectedDate.value.clone() as Calendar
+                                sd.add(Calendar.DAY_OF_MONTH, -7)
+                                selectedDate.value = sd
                             }
                         }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "上一周/月", tint = AppSurface)
@@ -98,11 +100,13 @@ fun CalendarScreen(
                         )
                         IconButton(onClick = {
                             if (expandProgress > 0.5f) {
-                                currentMonth.value = currentMonth.value.clone() as Calendar
-                                currentMonth.value.add(Calendar.MONTH, 1)
+                                val cm = currentMonth.value.clone() as Calendar
+                                cm.add(Calendar.MONTH, 1)
+                                currentMonth.value = cm
                             } else {
-                                selectedDate.value = selectedDate.value.clone() as Calendar
-                                selectedDate.value.add(Calendar.DAY_OF_MONTH, 7)
+                                val sd = selectedDate.value.clone() as Calendar
+                                sd.add(Calendar.DAY_OF_MONTH, 7)
+                                selectedDate.value = sd
                             }
                         }) {
                             Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "下一周/月", tint = AppSurface)
@@ -138,20 +142,24 @@ fun CalendarScreen(
                     onDateSelected = { selectedDate.value = it },
                     onSwipeLeft = {
                         if (expandProgress > 0.5f) {
-                            currentMonth.value = currentMonth.value.clone() as Calendar
-                            currentMonth.value.add(Calendar.MONTH, 1)
+                            val cm = currentMonth.value.clone() as Calendar
+                            cm.add(Calendar.MONTH, 1)
+                            currentMonth.value = cm
                         } else {
-                            selectedDate.value = selectedDate.value.clone() as Calendar
-                            selectedDate.value.add(Calendar.DAY_OF_MONTH, 7)
+                            val sd = selectedDate.value.clone() as Calendar
+                            sd.add(Calendar.DAY_OF_MONTH, 7)
+                            selectedDate.value = sd
                         }
                     },
                     onSwipeRight = {
                         if (expandProgress > 0.5f) {
-                            currentMonth.value = currentMonth.value.clone() as Calendar
-                            currentMonth.value.add(Calendar.MONTH, -1)
+                            val cm = currentMonth.value.clone() as Calendar
+                            cm.add(Calendar.MONTH, -1)
+                            currentMonth.value = cm
                         } else {
-                            selectedDate.value = selectedDate.value.clone() as Calendar
-                            selectedDate.value.add(Calendar.DAY_OF_MONTH, -7)
+                            val sd = selectedDate.value.clone() as Calendar
+                            sd.add(Calendar.DAY_OF_MONTH, -7)
+                            selectedDate.value = sd
                         }
                     }
                 )
@@ -285,12 +293,12 @@ private fun CalendarArea(
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
                             val delta = change.positionChange().y
                             if (abs(delta) > 0.5f) {
-                                localProgress = (localProgress + delta / 400f).coerceIn(0f, 1f)
+                                localProgress = (localProgress + delta / 200f).coerceIn(0f, 1f)
                                 onExpandProgressChange(localProgress)
                             }
                         } while (event.changes.any { it.pressed })
-                        // Snap to nearest: >0.5 → expand, <0.5 → collapse
-                        onExpandProgressChange(if (localProgress > 0.5f) 1f else 0f)
+                        // Snap to nearest: >=0.5 → expand, <0.5 → collapse
+                        onExpandProgressChange(if (localProgress >= 0.5f) 1f else 0f)
                     }
                 },
             contentAlignment = Alignment.Center
